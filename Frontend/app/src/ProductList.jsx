@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
-
+const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
 // --- SUB-COMPONENT FOR INDIVIDUAL PRODUCT LOGIC ---
 const ProductCard = ({
   p,
@@ -168,7 +168,7 @@ const ProductList = ({ products = [], categories = [] }) => {
   const { addToCart, removeFromCart, updateQuantity, cart } = useCart();
   const productSectionRef = useRef(null);
 
-  const API_BASE_URL = "hhttps://nandinibrassmetals-1.onrender.com";
+  const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
 
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory

@@ -7,7 +7,7 @@ const ProductDetail = ({ products }) => {
   const { id } = useParams();
   const { addToCart, cart } = useCart();
   const [qty, setQty] = useState(1);
-  const API_BASE_URL = "http://localhost:5000";
+  const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
 
   const product = products.find((p) => p.id === parseInt(id));
 
