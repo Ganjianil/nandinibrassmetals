@@ -252,7 +252,7 @@ const Admin = () => {
                       <img
                         src={
                           firstItem.image
-                            ? `http://localhost:5000${firstItem.image}`
+                            ? `https://nandinibrassmetals-1.onrender.com${firstItem.image}`
                             : "https://via.placeholder.com/150"
                         }
                         className="w-28 h-28 object-cover rounded-3xl border shadow-sm"
@@ -389,7 +389,7 @@ const Admin = () => {
                       <img
                         src={
                           cat.image
-                            ? `http://localhost:5000${cat.image}`
+                            ? `https://nandinibrassmetals-1.onrender.com${cat.image}`
                             : `https://via.placeholder.com/150`
                         }
                         className="w-full h-32 object-cover rounded-2xl mb-4"
@@ -419,7 +419,7 @@ const Admin = () => {
                 </button>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-8 rounded-3xl border shadow-sm">
                   <img
-                    src={`http://localhost:5000${viewingProduct.image}`}
+                    src={`https://nandinibrassmetals-1.onrender.com${viewingProduct.image}`}
                     className="w-full rounded-2xl shadow-lg border-4 border-slate-50"
                     alt=""
                   />
@@ -477,7 +477,7 @@ const Admin = () => {
                       >
                         <div className="flex items-center gap-6">
                           <img
-                            src={`http://localhost:5000${p.image}`}
+                            src={`https://nandinibrassmetals-1.onrender.com${p.image}`}
                             className="w-16 h-16 object-cover rounded-xl"
                             alt=""
                           />
@@ -783,7 +783,7 @@ const Admin = () => {
                   <img
                     src={
                       item.image
-                        ? `http://localhost:5000${item.image}`
+                        ? `https://nandinibrassmetals-1.onrender.com${item.image}`
                         : "https://via.placeholder.com/80"
                     }
                     className="w-20 h-20 object-cover rounded-2xl"
