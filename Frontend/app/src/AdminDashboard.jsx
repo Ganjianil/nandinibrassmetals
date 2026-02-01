@@ -269,7 +269,9 @@ const Admin = () => {
                             ? `${BASE_URL}${firstItem.image}`
                             : "https://via.placeholder.com/150"
                         }
-                        onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                        onError={(e) => {
+                          e.target.src = "https://via.placeholder.com/150";
+                        }}
                         className="w-28 h-28 object-cover rounded-3xl border shadow-sm"
                         alt=""
                       />
@@ -300,7 +302,8 @@ const Admin = () => {
                         </button>
                         <div className="space-y-1 text-xs font-bold text-slate-500">
                           <p className="flex items-center gap-2">
-                            <Lucide.User size={12} className="text-blue-600" /> {order.username}
+                            <Lucide.User size={12} className="text-blue-600" />{" "}
+                            {order.username}
                           </p>
                           <p className="flex items-center gap-2 text-blue-500">
                             <Lucide.Mail size={12} /> {order.email}
@@ -313,24 +316,70 @@ const Admin = () => {
                     </div>
 
                     {/* Order status buttons */}
+                    {/* Order status buttons */}
                     <div className="flex flex-col gap-2 w-full lg:w-48">
+                      {/* 1. PENDING STATE */}
                       {order.status === "Pending" && (
                         <>
                           <button
-                            onClick={() => updateOrderStatus(order.id, "Accepted")}
-                            className="bg-blue-500 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-blue-600"
+                            onClick={() =>
+                              updateOrderStatus(order.id, "Accepted")
+                            }
+                            className="bg-blue-500 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-blue-600 shadow-sm"
                           >
                             Accept Order
                           </button>
                           <button
-                            onClick={() => updateOrderStatus(order.id, "Cancelled")}
-                            className="border-2 border-red-500 text-red-500 py-3 rounded-2xl font-black text-xs uppercase hover:bg-red-500 hover:text-white"
+                            onClick={() =>
+                              updateOrderStatus(order.id, "Cancelled")
+                            }
+                            className="border-2 border-red-500 text-red-500 py-3 rounded-2xl font-black text-xs uppercase hover:bg-red-500 hover:text-white transition-all"
                           >
                             Cancel
                           </button>
                         </>
                       )}
-                      {/* Add other status buttons here if needed */}
+
+                      {/* 2. ACCEPTED STATE */}
+                      {order.status === "Accepted" && (
+                        <button
+                          onClick={() => updateOrderStatus(order.id, "Shipped")}
+                          className="bg-orange-500 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-orange-600 shadow-sm"
+                        >
+                          Mark as Shipped
+                        </button>
+                      )}
+
+                      {/* 3. SHIPPED STATE */}
+                      {order.status === "Shipped" && (
+                        <button
+                          onClick={() =>
+                            updateOrderStatus(order.id, "Delivered")
+                          }
+                          className="bg-green-600 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-green-700 shadow-sm"
+                        >
+                          Mark as Delivered
+                        </button>
+                      )}
+
+                      {/* 4. DELIVERED STATE */}
+                      {order.status === "Delivered" && (
+                        <div className="text-center bg-green-50 py-4 rounded-2xl border border-dashed border-green-200 uppercase font-black text-[10px] text-green-600">
+                          <Lucide.CheckCircle2
+                            size={14}
+                            className="mx-auto mb-1"
+                          />
+                          Order Completed
+                        </div>
+                      )}
+
+                      {/* 5. CANCELLED STATE */}
+                      {order.status === "Cancelled" && (
+                        <div className="text-center bg-red-50 py-4 rounded-2xl border border-dashed border-red-200 uppercase font-black text-[10px] text-red-400">
+                          <Lucide.XCircle size={14} className="mx-auto mb-1" />
+                          Cancelled
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
