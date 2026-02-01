@@ -237,17 +237,35 @@ app.get('/api/admin/promos', async (req, res) => {
 app.post('/api/admin/promos', async (req, res) => {
     const { code, discount, start_date, expiry_date } = req.body;
     try {
-        await db.query('INSERT INTO promo_codes (code, discount_percent, start_date, expiry_date, is_active) VALUES (?, ?, ?, ?, 1)', 
-        [code, discount, start_date, expiry_date]);
+        // We must list the columns EXPLICITLY to avoid order issues
+        const sql = `
+            INSERT INTO promo_codes (code, discount_percent, is_active, start_date, expiry_date) 
+            VALUES (?, ?, ?, ?, ?)
+        `;
+
+        await db.query(sql, [
+            code.toUpperCase(), 
+            parseInt(discount), 
+            true,               // Set is_active to true (Boolean)
+            start_date, 
+            expiry_date
+        ]);
+
         res.json({ message: "Promo created!" });
-    } catch (err) { res.status(500).json({ error: "Creation error" }); }
+    } catch (err) { 
+        console.error("Postgres Error:", err.message);
+        res.status(500).json({ error: "Creation error: " + err.message }); 
+    }
 });
 
 app.delete('/api/admin/promos/:id', async (req, res) => {
     try {
-        await db.query('DELETE FROM promo_codes WHERE id = ?', [req.params.id]);
-        res.json({ message: "Deleted" });
-    } catch (err) { res.status(500).json({ error: "Delete failed" }); }
+        const id = parseInt(req.params.id);
+        await db.query('DELETE FROM promo_codes WHERE id = ?', [id]);
+        res.json({ message: "Deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Delete failed" });
+    }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
