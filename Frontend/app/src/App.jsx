@@ -276,12 +276,14 @@ function App() {
     const fetchData = async () => {
       try {
         const [prodRes, catRes] = await Promise.all([
-          axios.get("http://localhost:5000/products"),
-          axios.get("http://localhost:5000/api/categories"),
+          axios.get("https://nandinibrassmetals-1.onrender.com/products"),
+          axios.get("https://nandinibrassmetals-1.onrender.com/api/categories"),
+          
         ]);
         setProducts(prodRes.data);
         setCategories(catRes.data);
       } catch (err) {
+
         console.error("Fetch Error:", err);
       } finally {
         setLoading(false);

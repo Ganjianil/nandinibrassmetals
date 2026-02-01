@@ -168,7 +168,7 @@ const ProductList = ({ products = [], categories = [] }) => {
   const { addToCart, removeFromCart, updateQuantity, cart } = useCart();
   const productSectionRef = useRef(null);
 
-  const API_BASE_URL = "http://localhost:5000";
+  const API_BASE_URL = "hhttps://nandinibrassmetals-1.onrender.com";
 
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory

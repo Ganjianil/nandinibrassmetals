@@ -166,7 +166,7 @@ const Cart = () => {
                   <img
                     src={
                       item.image
-                        ? `http://localhost:5000${item.image}`
+                        ? `https://nandinibrassmetals-1.onrender.com${item.image}`
                         : "https://via.placeholder.com/150"
                     }
                     alt={item.name}

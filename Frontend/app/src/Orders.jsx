@@ -8,7 +8,7 @@ const Orders = () => {
 
   // Retrieve user data to get the ID
   const user = JSON.parse(localStorage.getItem("user"));
-  const API_BASE_URL = "http://localhost:5000";
+  const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
 
   const canCancel = (orderDate) => {
     const created = new Date(orderDate);

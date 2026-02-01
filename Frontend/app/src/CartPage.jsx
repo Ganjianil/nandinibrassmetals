@@ -10,7 +10,7 @@ const CartPage = () => {
     if (!user) return alert("Please login to place an order!");
 
     try {
-      await axios.post("http://localhost:5000/api/orders", {
+      await axios.post("https://nandinibrassmetals-1.onrender.com/api/orders", {
         userId: user.id,
         totalAmount: totalPrice,
         items: cart, // Optional: you can save specific items too
