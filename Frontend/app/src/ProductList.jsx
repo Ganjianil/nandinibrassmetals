@@ -2,8 +2,10 @@ import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
+
 const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
-// --- SUB-COMPONENT FOR INDIVIDUAL PRODUCT LOGIC ---
+
+// --- REDESIGNED BEAUTIFUL PRODUCT CARD ---
 const ProductCard = ({
   p,
   API_BASE_URL,
@@ -13,14 +15,26 @@ const ProductCard = ({
   cartItem,
 }) => {
   const isOutOfStock = p.stock <= 0;
-
-  // Current quantity is derived directly from the cart
   const currentQty = cartItem ? cartItem.quantity : 0;
+
+  // --- LUXURY DISCOUNT LOGIC ---
+  const hasDiscount = p.discount_price && p.discount_price < p.price;
+  const displayPrice = hasDiscount ? p.discount_price : p.price;
+  const originalPrice = p.price;
+  const discountPercentage = hasDiscount
+    ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
+    : 0;
+
+  // Smart URL logic to prevent doubling
+  const getImgSrc = (path) => {
+    if (!path) return null;
+    return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  };
 
   const handleAddOne = () => {
     if (currentQty < p.stock) {
       if (currentQty === 0) {
-        addToCart({ ...p, quantity: 1 });
+        addToCart({ ...p, quantity: 1, price: displayPrice });
       } else {
         updateQuantity(p.id, currentQty + 1);
       }
@@ -37,51 +51,68 @@ const ProductCard = ({
 
   return (
     <div
-      className={`group relative flex flex-col ${isOutOfStock ? "opacity-60" : ""}`}
+      className={`group relative flex flex-col transition-all duration-500 hover:-translate-y-2 ${isOutOfStock ? "opacity-60" : ""}`}
     >
-      {/* Image Container */}
-      <div className="relative aspect-[3/4] overflow-hidden rounded-[3rem] bg-slate-100 border-4 border-white shadow-xl group-hover:shadow-2xl transition-all duration-500">
+      {/* Premium Image Container */}
+      <div className="relative aspect-[4/5] overflow-hidden rounded-[2.5rem] bg-[#f8f9fa] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.1)] transition-all duration-700">
+        {/* LUXURY BADGE: Glassmorphism Effect */}
+        {hasDiscount && !isOutOfStock && (
+          <div className="absolute top-5 left-5 z-30">
+            <div className="bg-white/80 backdrop-blur-md border border-white/20 px-4 py-2 rounded-2xl shadow-xl flex flex-col items-center">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter leading-none">
+                Save
+              </span>
+              <span className="text-sm font-black text-red-600 tracking-tighter">
+                {discountPercentage}%
+              </span>
+            </div>
+          </div>
+        )}
+
         <Link
           to={isOutOfStock ? "#" : `/product/${p.id}`}
-          className={isOutOfStock ? "cursor-default" : ""}
+          className={`block h-full w-full ${isOutOfStock ? "cursor-default" : "cursor-pointer"}`}
         >
           {p.image ? (
             <img
-              src={`${API_BASE_URL}${p.image}`}
-              className={`h-full w-full object-cover transition-transform duration-1000 ${!isOutOfStock && "group-hover:scale-110"}`}
+              src={getImgSrc(p.image)}
+              className={`h-full w-full object-cover transition-all duration-[1.5s] ease-out ${!isOutOfStock && "group-hover:scale-110 group-hover:rotate-1"}`}
               alt={p.name}
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center bg-slate-200">
-              <Lucide.Image size={40} className="text-slate-400" />
+            <div className="h-full w-full flex items-center justify-center">
+              <Lucide.Package size={40} className="text-slate-200" />
             </div>
           )}
         </Link>
 
-        {/* Out of Stock Overlay */}
+        {/* Sold Out Overlay */}
         {isOutOfStock && (
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-10">
-            <span className="bg-white text-slate-900 font-black px-6 py-2 rounded-full uppercase tracking-widest text-xs shadow-2xl transform -rotate-12">
-              Sold Out
-            </span>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="bg-white/10 border border-white/20 px-8 py-3 rounded-full">
+              <span className="text-white font-black uppercase tracking-[0.3em] text-[10px]">
+                Vault Closed
+              </span>
+            </div>
           </div>
         )}
 
-        {/* --- DESKTOP HOVER ACTION --- */}
+        {/* Floating Action Button (Desktop Only) */}
         {!isOutOfStock && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] bg-white/95 backdrop-blur-sm rounded-2xl p-2 shadow-2xl opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300 hidden md:flex items-center justify-center z-20">
+          <div className="absolute bottom-8 left-0 right-0 px-6 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-20 hidden md:block">
             {currentQty === 0 ? (
               <button
                 onClick={handleAddOne}
-                className="w-full py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-900 transition-all"
+                className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 shadow-2xl hover:bg-amber-600 transition-colors"
               >
-                Add to Cart
+                <Lucide.ShoppingBag size={16} />
+                Add to Collection
               </button>
             ) : (
-              <div className="flex items-center justify-between w-full px-2">
+              <div className="flex items-center justify-between bg-white rounded-2xl p-2 shadow-2xl border border-slate-100">
                 <button
                   onClick={handleRemoveOne}
-                  className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
+                  className="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-50 rounded-xl transition-all"
                 >
                   {currentQty === 1 ? (
                     <Lucide.Trash2 size={16} />
@@ -89,10 +120,12 @@ const ProductCard = ({
                     <Lucide.Minus size={16} />
                   )}
                 </button>
-                <span className="font-black text-slate-900">{currentQty}</span>
+                <span className="font-black text-slate-900 text-lg">
+                  {currentQty}
+                </span>
                 <button
                   onClick={handleAddOne}
-                  className="p-2 hover:bg-slate-100 rounded-lg text-amber-600"
+                  className="w-10 h-10 flex items-center justify-center text-amber-600 hover:bg-slate-50 rounded-xl transition-all"
                 >
                   <Lucide.Plus size={16} />
                 </button>
@@ -102,40 +135,47 @@ const ProductCard = ({
         )}
       </div>
 
-      {/* Product Info */}
-      <div className="mt-6 px-2 text-center">
-        <h3 className="font-black text-lg uppercase text-slate-900 tracking-tight leading-tight">
-          {p.name}
+      {/* Elegant Product Info */}
+      <div className="mt-8 text-center px-2">
+        <h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] mb-2">
+          Exclusive Brass
         </h3>
-        <p className="text-slate-400 text-[11px] font-medium mt-1 mb-3 italic">
-          {isOutOfStock
-            ? "Checking restock dates..."
-            : `Stock Available: ${p.stock}`}
-        </p>
+        <h2 className="font-black text-xl uppercase text-slate-900 tracking-tighter leading-none mb-3 group-hover:text-amber-600 transition-colors">
+          {p.name}
+        </h2>
 
-        <div className="flex flex-col items-center gap-3">
-          <span className="text-2xl font-black text-slate-900">₹{p.price}</span>
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3">
+            {hasDiscount && (
+              <span className="text-slate-300 line-through text-sm font-bold decoration-slate-300">
+                ₹{originalPrice}
+              </span>
+            )}
+            <span className="text-2xl font-black text-slate-900 tracking-tighter">
+              ₹{displayPrice}
+            </span>
+          </div>
 
-          {/* --- MOBILE SPECIFIC CONTROLS --- */}
+          {/* Minimalist Mobile Controls */}
           {!isOutOfStock && (
-            <div className="w-full md:hidden">
+            <div className="w-full md:hidden pt-2">
               {currentQty === 0 ? (
                 <button
                   onClick={handleAddOne}
-                  className="w-full py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-xs"
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
                 >
-                  Add to Cart
+                  Quick Add
                 </button>
               ) : (
-                <div className="flex items-center justify-between bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                <div className="flex items-center justify-between bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
                   <button
                     onClick={handleRemoveOne}
-                    className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-400"
+                    className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400"
                   >
                     {currentQty === 1 ? (
-                      <Lucide.Trash2 size={14} />
+                      <Lucide.Trash2 size={16} />
                     ) : (
-                      <Lucide.Minus size={14} />
+                      <Lucide.Minus size={16} />
                     )}
                   </button>
                   <span className="font-black text-slate-900">
@@ -143,9 +183,9 @@ const ProductCard = ({
                   </span>
                   <button
                     onClick={handleAddOne}
-                    className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-amber-600"
+                    className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-amber-600"
                   >
-                    <Lucide.Plus size={14} />
+                    <Lucide.Plus size={16} />
                   </button>
                 </div>
               )}
@@ -164,11 +204,13 @@ const ProductList = ({ products = [], categories = [] }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 8;
 
-  // Added removeFromCart and updateQuantity from Context
   const { addToCart, removeFromCart, updateQuantity, cart } = useCart();
   const productSectionRef = useRef(null);
 
-  const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
+  const getImgSrc = (path) => {
+    if (!path) return null;
+    return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  };
 
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory
@@ -232,8 +274,8 @@ const ProductList = ({ products = [], categories = [] }) => {
             >
               {cat.image && (
                 <img
-                  src={`${API_BASE_URL}${cat.image}`}
-                  className="w-full h-full object-cover"
+                  src={getImgSrc(cat.image)}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   alt={cat.name}
                 />
               )}
@@ -262,7 +304,7 @@ const ProductList = ({ products = [], categories = [] }) => {
           />
           <input
             type="text"
-            placeholder="Search divine metals..."
+            placeholder="Search our collection..."
             className="w-full bg-slate-50 py-5 pl-14 pr-6 rounded-[2rem] outline-none font-bold focus:ring-2 ring-amber-500/20"
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -271,7 +313,7 @@ const ProductList = ({ products = [], categories = [] }) => {
 
       {/* PRODUCT GRID */}
       {currentProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-20">
           {currentProducts.map((p) => (
             <ProductCard
               key={p.id}
@@ -298,17 +340,17 @@ const ProductList = ({ products = [], categories = [] }) => {
           <button
             onClick={() => paginate(currentPage - 1)}
             disabled={currentPage === 1}
-            className="w-14 h-14 rounded-full border-2 flex items-center justify-center disabled:opacity-20 hover:bg-slate-900 hover:text-white transition-all"
+            className="w-14 h-14 rounded-full border-2 border-slate-100 flex items-center justify-center disabled:opacity-20 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
           >
             <Lucide.ChevronLeft size={24} />
           </button>
-          <span className="font-black px-6">
+          <span className="font-black px-6 text-slate-900 uppercase text-xs tracking-widest">
             Page {currentPage} of {totalPages}
           </span>
           <button
             onClick={() => paginate(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="w-14 h-14 rounded-full border-2 flex items-center justify-center disabled:opacity-20 hover:bg-slate-900 hover:text-white transition-all"
+            className="w-14 h-14 rounded-full border-2 border-slate-100 flex items-center justify-center disabled:opacity-20 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
           >
             <Lucide.ChevronRight size={24} />
           </button>

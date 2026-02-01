@@ -35,23 +35,33 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 }));
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 
 if (!fs.existsSync('./uploads')) { fs.mkdirSync('./uploads'); }
-
 const storage = multer.diskStorage({
     destination: './uploads/',
     filename: (req, file, cb) => { cb(null, Date.now() + path.extname(file.originalname)); }
 });
 const upload = multer({ storage });
 
-// URL Helper
-const getFullUrl = (req, path) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    return `${req.protocol}://${req.get('host')}${path}`;
-};
+// URL Helper - FIXED to prevent 404s on images
+// --- 1. FIXED STATIC MIDDLEWARE ---
+// This ensures the server can actually "see" the folder
+// Keep this one only - it uses path.join for better reliability
+// Remove any other app.use('/uploads'...) lines and keep ONLY this one:
+// Change this line:
+app.use('/uploads', express.static('uploads'));// REPLACE your current getFullUrl with this exact one:
+const getFullUrl = (req, imagePath) => {
+    if (!imagePath) return null;
+    
+    // If it's already an external link (Unsplash), return as is
+    if (imagePath.startsWith('http')) return imagePath;
 
+    // Remove the domain if it accidentally got saved in the database
+    // We only want the part starting with /uploads/
+    const fileName = imagePath.split('/uploads/').pop();
+    
+    return `/uploads/${fileName}`;
+};
 // Auth Guard
 const verifyAdmin = (req, res, next) => {
     const session = req.cookies.user_session;
@@ -99,11 +109,9 @@ app.get('/products', async (req, res) => {
         let params = [];
         if (category) { sql += ' AND category_id = ?'; params.push(category); }
         if (search) { sql += ' AND name ILIKE ?'; params.push(`%${search}%`); }
-        
         if (sort === 'price_low') sql += ' ORDER BY price ASC';
         else if (sort === 'price_high') sql += ' ORDER BY price DESC';
         else sql += ' ORDER BY id DESC';
-
         const { rows } = await db.query(sql, params);
         res.json(rows.map(p => ({ ...p, image: getFullUrl(req, p.image) })));
     } catch (err) { res.status(500).json({ error: "Fetch error" }); }
@@ -219,68 +227,102 @@ app.delete('/api/admin/categories/:id', verifyAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Category linked to products" }); }
 });
 
-// --- ADMIN PRODUCT ACTIONS ---
-
 // ADD PRODUCT
+// ADD PRODUCT - UPDATED TO INCLUDE DISCOUNT PRICE
+// ADD PRODUCT - FIXED DISCOUNT PRICE PARSING
+// ADD PRODUCT – FIXED VERSION (safe parsing from req.body)
+// ADD PRODUCT - SAFE PARSING VERSION (no destructuring issues)
 app.post("/api/admin/products", verifyAdmin, upload.single('image'), async (req, res) => {
-    const img = req.file ? `/uploads/${req.file.filename}` : null;
-    const { name, price, stock, description, long_description, category_id } = req.body;
-    try {
-        await db.query("INSERT INTO products (name, price, stock, description, long_description, category_id, image) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-        [name, parseFloat(price), parseInt(stock), description, long_description, parseInt(category_id), img]);
-        res.json({ message: "Product added" });
-    } catch (err) { res.status(500).json({ error: "Add failed" }); }
-});
+    console.log("=== DEBUG: Incoming product creation ===");
+    console.log("req.body (raw):", req.body);
+    console.log("req.file:", req.file ? req.file.filename : "no file uploaded");
 
-// DELETE PRODUCT (Corrected Version - Use this ONLY once)
+    const img = req.file ? `/uploads/${req.file.filename}` : null;
+
+    // Read fields directly from req.body (safer than destructuring with multer) discount_price
+
+    const name              = (req.body.name || "").trim();
+    const price_raw         = req.body.price || "0";
+    const discount_price_raw = req.body.discount_price || "0";      // ← this must appear in logs
+    const stock_raw         = req.body.stock || "0";
+    const description       = (req.body.description || "").trim();
+    const long_description  = (req.body.long_description || "").trim();
+    const category_id_raw   = req.body.category_id || null;
+
+    // Parse numbers safely
+    const price          = parseFloat(price_raw) || 0;
+    const discount_price = parseFloat(discount_price_raw) || 0;
+    const stock          = parseInt(stock_raw) || 0;
+    const category_id    = category_id_raw ? parseInt(category_id_raw) : null;
+
+    // DEBUG: Show exactly what will be inserted
+    console.log("Parsed values ready for DB:");
+    console.log({ name, price, discount_price, stock, category_id, img });
+
+    try {
+        await db.query(
+            `INSERT INTO products 
+             (name, price, discount_price, stock, description, long_description, category_id, image)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [name, price, discount_price, stock, description, long_description, category_id, img]
+        );
+
+        console.log("Product inserted successfully");
+        res.json({ message: "Product added successfully!" });
+    } catch (err) {
+        console.error("INSERT ERROR:", err.message);
+        res.status(500).json({ 
+            error: "Failed to add product", 
+            details: err.message 
+        });
+    }
+});
+// DELETE PRODUCT (The logic that fixes your error)
 app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
     const productId = req.params.id;
     try {
-        // Start transaction
         await db.query('BEGIN');
-
-        // Step 1: Delete all reviews linked to this product first
-        // This prevents the "Foreign Key Constraint" error
         await db.query('DELETE FROM reviews WHERE product_id = ?', [productId]);
-
-        // Step 2: Delete the actual product
         const result = await db.query('DELETE FROM products WHERE id = ?', [productId]);
-
-        // If no product was found with that ID
         if (result.rowCount === 0) {
             await db.query('ROLLBACK');
             return res.status(404).json({ error: "Product not found" });
         }
-
         await db.query('COMMIT');
         res.json({ message: "Product and associated reviews deleted successfully" });
     } catch (err) {
-        // If anything fails, undo all changes
         await db.query('ROLLBACK');
-        console.error("Delete operation failed:", err);
-        res.status(500).json({ 
-            error: "Delete failed. This product might be part of an existing order history." 
-        });
+        res.status(500).json({ error: "Delete failed. Product might be in an order." });
     }
 });
 
 // UPDATE PRODUCT
+// UPDATE PRODUCT - UPDATED TO INCLUDE DISCOUNT PRICE
 app.put("/api/admin/products/:id", verifyAdmin, upload.single('image'), async (req, res) => {
-    const { name, price, stock, description, long_description, category_id } = req.body;
+    const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
     const img = req.file ? `/uploads/${req.file.filename}` : null;
+    
     try {
-        if (img) {
-            await db.query("UPDATE products SET name=?, price=?, stock=?, description=?, long_description=?, category_id=?, image=? WHERE id=?", 
-            [name, parseFloat(price), parseInt(stock), description, long_description, parseInt(category_id), img, req.params.id]);
-        } else {
-            await db.query("UPDATE products SET name=?, price=?, stock=?, description=?, long_description=?, category_id=? WHERE id=?", 
-            [name, parseFloat(price), parseInt(stock), description, long_description, parseInt(category_id), req.params.id]);
-        }
-        res.json({ message: "Updated" });
-    } catch (err) { res.status(500).json({ error: "Update failed" }); }
-});
+        // We use COALESCE or separate logic to handle the discount_price update
+        const d_price = discount_price ? parseFloat(discount_price) : null;
 
-// Admin Promo Management
+        if (img) {
+            await db.query(
+                "UPDATE products SET name=?, price=?, discount_price=?, stock=?, description=?, long_description=?, category_id=?, image=? WHERE id=?", 
+                [name, parseFloat(price), d_price, parseInt(stock), description, long_description, parseInt(category_id), img, req.params.id]
+            );
+        } else {
+            await db.query(
+                "UPDATE products SET name=?, price=?, discount_price=?, stock=?, description=?, long_description=?, category_id=? WHERE id=?", 
+                [name, parseFloat(price), d_price, parseInt(stock), description, long_description, parseInt(category_id), req.params.id]
+            );
+        }
+        res.json({ message: "Updated successfully" });
+    } catch (err) { 
+        res.status(500).json({ error: "Update failed" }); 
+    }
+});
+// Admin Promos
 app.get('/api/admin/promos', verifyAdmin, async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM promo_codes ORDER BY id DESC');
