@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
-const { Pool } = require('pg'); // Changed from mysql2 to pg
+const { Pool } = require('pg');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -10,18 +10,20 @@ const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
-const PORT = 5000;
-const JWT_SECRET = "your_super_secret_key_123"; 
+
+// Use Render's dynamic port or default to 5000 for local testing
+const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || "your_super_secret_key_123";
 
 // --- DATABASE CONNECTION (Neon PostgreSQL) ---
 const pool = new Pool({
     connectionString: process.env.db_url,
     ssl: {
-        rejectUnauthorized: false // Required for Neon/Azure
+        rejectUnauthorized: false // Required for Neon
     }
 });
 
-//// Corrected Helper for PostgreSQL
+// PostgreSQL Helper: Converts MySQL '?' placeholders to PostgreSQL '$1, $2...'
 const db = {
     query: (text, params) => {
         let i = 0;
@@ -29,19 +31,36 @@ const db = {
         return pool.query(formattedText, params);
     }
 };
+
 // --- MIDDLEWARE ---
 app.use(cookieParser());
+
+// CORS Configuration for Production (Netlify) and Localhost
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://nandhinicrafts.netlify.app"
+];
+
 app.use(cors({
-    origin: "http://localhost:5173",
-    credentials: true 
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
 }));
+
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
+// Ensure uploads folder exists
 if (!fs.existsSync('./uploads')) {
     fs.mkdirSync('./uploads');
 }
 
+// Multer Setup for Image Uploads
 const storage = multer.diskStorage({
     destination: './uploads/',
     filename: (req, file, cb) => {
@@ -50,10 +69,16 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Logger
 app.use((req, res, next) => {
     console.log(`>>> ${req.method} ${req.url}`);
     next();
 });
+
+// --- ROUTES ---
+
+// Health Check (Check if server is live)
+app.get('/', (req, res) => res.send('Server is running and healthy!'));
 
 // --- AUTH ROUTES ---
 
@@ -62,7 +87,7 @@ app.post('/api/register', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         await db.query(
-            'INSERT INTO users (username, email, password) VALUES (?, ?, ?)', 
+            'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
             [username, email, hashedPassword]
         );
         res.status(201).json({ message: "User created!" });
@@ -84,11 +109,12 @@ app.post('/api/login', async (req, res) => {
 
         const userData = { id: user.id, username: user.username, email: user.email };
 
+        // Production-ready cookies (Secure for Netlify/Render)
         res.cookie('user_session', JSON.stringify(userData), {
-            maxAge: 7 * 24 * 60 * 60 * 1000, 
-            httpOnly: false, 
-            secure: false,   
-            sameSite: 'Lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            secure: true,   // Required for cross-site (HTTPS)
+            sameSite: 'None', // Required for cross-site (Netlify to Render)
             path: '/'
         });
 
@@ -98,7 +124,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// --- PRODUCT & CATEGORY PUBLIC ROUTES ---
+// --- SHOP ROUTES ---
 
 app.get('/products', async (req, res) => {
     try {
@@ -111,10 +137,8 @@ app.get('/api/categories', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM categories');
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: "Fetch error" }); }
 });
-
-// --- REVIEWS ---
 
 app.get("/api/products/:id/reviews", async (req, res) => {
     try {
@@ -131,17 +155,15 @@ app.post("/api/products/:id/reviews", async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Post review error" }); }
 });
 
-// --- PROMO VALIDATION ---
-
 app.post('/api/validate-promo', async (req, res) => {
     const { code } = req.body;
     const today = new Date().toISOString().split('T')[0];
     try {
         const { rows } = await db.query(
-            'SELECT * FROM promo_codes WHERE code = ? AND is_active = 1 AND expiry_date >= ?', 
+            'SELECT * FROM promo_codes WHERE code = ? AND is_active = TRUE AND expiry_date >= ?',
             [code, today]
         );
-        if (rows.length === 0) return res.status(404).json({ success: false, message: "Invalid or expired code." });
+        if (rows.length === 0) return res.status(404).json({ success: false, message: "Invalid code." });
         res.json({ success: true, discount_percent: rows[0].discount_percent });
     } catch (err) { res.status(500).json({ error: "Validation error" }); }
 });
@@ -164,33 +186,13 @@ app.get('/api/orders/:userId', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Fetch error" }); }
 });
 
-app.patch('/api/orders/:orderId/cancel', async (req, res) => {
-    try {
-        const { rows } = await db.query('SELECT created_at, status FROM orders WHERE id = ?', [req.params.orderId]);
-        if (rows.length === 0) return res.status(404).json({ error: "Order not found" });
-
-        const diffInHours = (new Date() - new Date(rows[0].created_at)) / (1000 * 60 * 60);
-        if (diffInHours > 6) return res.status(403).json({ error: "Cancellation window (6hrs) expired." });
-        
-        await db.query('UPDATE orders SET status = ? WHERE id = ?', ['Cancelled', req.params.orderId]);
-        res.json({ message: "Order cancelled successfully" });
-    } catch (err) { res.status(500).json({ error: "Cancel error" }); }
-});
-
 // --- ADMIN ROUTES ---
 
 app.get('/api/admin/orders', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put("/api/admin/orders/:id", async (req, res) => {
-    try {
-        await db.query("UPDATE orders SET status = ? WHERE id = ?", [req.body.status, req.params.id]);
-        res.json({ message: "Status updated" });
-    } catch (err) { res.status(500).json({ error: "Update failed" }); }
+    } catch (err) { res.status(500).json({ error: "Fetch error" }); }
 });
 
 app.post('/api/admin/categories', upload.single('image'), async (req, res) => {
@@ -202,46 +204,14 @@ app.post('/api/admin/categories', upload.single('image'), async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Server error" }); }
 });
 
-app.delete('/api/admin/categories/:id', async (req, res) => {
-    try {
-        const { rows } = await db.query('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [req.params.id]);
-        if (parseInt(rows[0].count) > 0) return res.status(400).json({ message: "Category still has products." });
-        await db.query('DELETE FROM categories WHERE id = ?', [req.params.id]);
-        res.json("Deleted.");
-    } catch (err) { res.status(500).json({ error: "Delete failed" }); }
-});
-
 app.post("/api/admin/products", upload.single('image'), async (req, res) => {
     const { name, price, stock, description, long_description, category_id } = req.body;
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
     try {
-        await db.query("INSERT INTO products (name, price, stock, description, long_description, category_id, image) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-        [name, price, stock, description, long_description, category_id, imagePath]);
+        await db.query("INSERT INTO products (name, price, stock, description, long_description, category_id, image) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [name, price, stock, description, long_description, category_id, imagePath]);
         res.json({ message: "Product Added!" });
     } catch (err) { res.status(500).json({ error: "Add failed" }); }
 });
 
-app.get('/api/admin/promos', async (req, res) => {
-    try {
-        const { rows } = await db.query('SELECT * FROM promo_codes ORDER BY id DESC');
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: "Fetch error" }); }
-});
-
-app.post('/api/admin/promos', async (req, res) => {
-    const { code, discount, start_date, expiry_date } = req.body;
-    try {
-        await db.query('INSERT INTO promo_codes (code, discount_percent, start_date, expiry_date, is_active) VALUES (?, ?, ?, ?, 1)', 
-        [code, discount, start_date, expiry_date]);
-        res.json({ message: "Promo created!" });
-    } catch (err) { res.status(500).json({ error: "Creation error" }); }
-});
-
-app.delete('/api/admin/promos/:id', async (req, res) => {
-    try {
-        await db.query('DELETE FROM promo_codes WHERE id = ?', [req.params.id]);
-        res.json({ message: "Deleted" });
-    } catch (err) { res.status(500).json({ error: "Delete failed" }); }
-});
-
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
