@@ -7,7 +7,7 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
+  const API_BASE_URL = "https://nandinibrassmetals.onrender.com";
 
   // HELPER: Resolve Image URL (Handles Cloudinary vs Legacy Render paths)
   const getImageUrl = (path) => {

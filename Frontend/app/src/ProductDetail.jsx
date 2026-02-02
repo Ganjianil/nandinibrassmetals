@@ -8,7 +8,7 @@ const ProductDetail = ({ products }) => {
   const { addToCart, cart } = useCart();
   const [qty, setQty] = useState(1);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, show: false });
-  const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
+  const API_BASE_URL = "https://nandinibrassmetals.onrender.com";
 
   const product = products.find((p) => p.id === parseInt(id));
 

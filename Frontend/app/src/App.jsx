@@ -276,9 +276,8 @@ function App() {
     const fetchData = async () => {
       try {
         const [prodRes, catRes] = await Promise.all([
-          axios.get("https://nandinibrassmetals-1.onrender.com/products"),
-          axios.get("https://nandinibrassmetals-1.onrender.com/api/categories"),
-          
+          axios.get("https://nandinibrassmetals.onrender.com/products"),
+          axios.get("https://nandinibrassmetals.onrender.com/api/categories"),
         ]);
         setProducts(prodRes.data);
         setCategories(catRes.data);
