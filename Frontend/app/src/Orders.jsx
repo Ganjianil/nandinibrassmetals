@@ -9,14 +9,19 @@ const Orders = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const API_BASE_URL = "https://nandinibrassmetals-1.onrender.com";
 
+  // HELPER: Resolve Image URL (Handles Cloudinary vs Legacy Render paths)
+  const getImageUrl = (path) => {
+    if (!path) return "https://via.placeholder.com/150?text=No+Image";
+    if (path.startsWith("http")) return path; // Already a Cloudinary URL
+    return `${API_BASE_URL}${path}`; // Legacy relative path
+  };
+
   // Safe JSON Parsing Helper
   const getParsedItems = (itemsData) => {
     try {
       if (!itemsData) return [];
-      if (typeof itemsData === "string") {
-        return JSON.parse(itemsData);
-      }
-      return itemsData; // Already an object/array
+      if (typeof itemsData === "string") return JSON.parse(itemsData);
+      return itemsData;
     } catch (e) {
       console.error("Parsing Error:", e);
       return [];
@@ -59,7 +64,7 @@ const Orders = () => {
   };
 
   const handleDownloadInvoice = (order) => {
-    const items = getParsedItems(order.items); // Using Safe Helper
+    const items = getParsedItems(order.items || order.cartItems);
     const invoiceWindow = window.open("", "_blank");
 
     invoiceWindow.document.write(`
@@ -67,23 +72,20 @@ const Orders = () => {
         <head>
           <title>Invoice_#${order.id}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Dancing+Script:wght@700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
             body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
-            .invoice-card { max-width: 800px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 20px; position: relative; }
-            .top-bar { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #3b82f6; }
+            .invoice-card { max-width: 800px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 20px; }
             .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
-            .company-brand { color: #1e293b; font-weight: 900; font-size: 24px; margin: 0; }
+            .company-brand { font-weight: 900; font-size: 24px; margin: 0; color: #b45309; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; background: #f8fafc; padding: 20px; border-radius: 15px; }
             table { width: 100%; border-collapse: collapse; }
             th { text-align: left; padding: 12px; background: #f1f5f9; font-size: 11px; text-transform: uppercase; }
             td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
             .grand-total { background: #1e293b; color: white; padding: 15px; border-radius: 10px; margin-top: 20px; text-align: right; font-weight: bold; }
-            @media print { .no-print { display: none; } }
           </style>
         </head>
         <body>
           <div class="invoice-card">
-            <div class="top-bar"></div>
             <div class="header">
               <div>
                 <h2 class="company-brand">NANDINI BRASS & METALS</h2>
@@ -103,13 +105,17 @@ const Orders = () => {
                 <tr><th>Item</th><th>Qty</th><th>Price</th><th style="text-align:right">Total</th></tr>
               </thead>
               <tbody>
-                ${items.map(i => `
+                ${items
+                  .map(
+                    (i) => `
                   <tr>
                     <td>${i.name}</td>
                     <td>${i.quantity || 1}</td>
                     <td>₹${parseFloat(i.price).toLocaleString()}</td>
                     <td style="text-align:right">₹${((i.quantity || 1) * i.price).toLocaleString()}</td>
-                  </tr>`).join('')}
+                  </tr>`,
+                  )
+                  .join("")}
               </tbody>
             </table>
             <div class="grand-total">Amount Payable: ₹${parseFloat(order.total_amount).toLocaleString()}</div>
@@ -121,72 +127,149 @@ const Orders = () => {
     invoiceWindow.document.close();
   };
 
-  if (!user) return <div className="p-10 text-center">Please login to view orders.</div>;
-  if (loading) return <div className="p-10 text-center">Loading your orders...</div>;
+  if (!user)
+    return (
+      <div className="p-10 text-center font-bold">
+        Please login to view orders.
+      </div>
+    );
+  if (loading)
+    return (
+      <div className="p-10 text-center animate-pulse">
+        Loading your orders...
+      </div>
+    );
 
   return (
     <div className="p-10 max-w-6xl mx-auto min-h-screen">
-      <h2 className="text-4xl font-black mb-10 text-slate-900 tracking-tighter">MY ORDERS</h2>
+      <h2 className="text-5xl font-black mb-12 text-slate-900 tracking-tighter uppercase">
+        My Orders<span className="text-amber-600">.</span>
+      </h2>
 
       {orders.length === 0 ? (
-        <div className="text-center p-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200 text-slate-400 font-bold">
-          No orders found.
+        <div className="text-center p-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+          <Lucide.PackageX size={48} className="mx-auto text-slate-300 mb-4" />
+          <p className="text-slate-400 font-bold uppercase tracking-widest">
+            No orders found.
+          </p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-10">
           {orders.map((order) => {
-            // const items = (order.items); // Safe call
-            const items =order.items || []
+            const items = getParsedItems(order.items || order.cartItems);
 
             return (
-              <div key={order.id} className="p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all duration-300">
-                <div className="flex justify-between items-start mb-6">
+              <div
+                key={order.id}
+                className="p-8 bg-white border border-slate-100 rounded-[3rem] shadow-sm hover:shadow-2xl transition-all duration-500"
+              >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                   <div>
-                    <span className="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold uppercase tracking-widest">Order ID: #{order.id}</span>
-                    <p className="text-xs text-slate-400 mt-2 font-medium">{new Date(order.created_at).toLocaleString()}</p>
+                    <span className="text-[10px] bg-amber-100 px-3 py-1 rounded-full text-amber-700 font-black uppercase tracking-widest">
+                      #{order.id}
+                    </span>
+                    <p className="text-xs text-slate-400 mt-2 font-bold flex items-center gap-1">
+                      <Lucide.Calendar size={12} />{" "}
+                      {new Date(order.created_at).toLocaleString()}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                        order.status === "Cancelled" ? "bg-red-50 text-red-600" :
-                        order.status === "Delivered" ? "bg-green-50 text-green-600" : "bg-blue-50 text-blue-600"
-                    }`}>
+                  <div className="flex items-center gap-3 w-full md:w-auto">
+                    <span
+                      className={`flex-1 md:flex-none text-center px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${
+                        order.status === "Cancelled"
+                          ? "bg-red-50 text-red-600"
+                          : order.status === "Delivered"
+                            ? "bg-green-50 text-green-600"
+                            : "bg-blue-50 text-blue-600"
+                      }`}
+                    >
                       {order.status}
                     </span>
-                    {order.status === "Delivered" && (
-                      <button onClick={() => handleDownloadInvoice(order)} className="p-2 bg-slate-900 text-white rounded-full hover:bg-blue-600 transition">
-                        <Lucide.FileText size={16} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDownloadInvoice(order)}
+                      className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-amber-600 transition-colors shadow-lg"
+                      title="Download Invoice"
+                    >
+                      <Lucide.Download size={18} />
+                    </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                  <div className="space-y-3">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                  {/* Items list */}
+                  <div className="lg:col-span-7 space-y-4">
                     {items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <img 
-                          src={item.image ? `${API_BASE_URL}${item.image}` : "https://via.placeholder.com/80"} 
-                          className="w-12 h-12 rounded-xl object-cover bg-white border" 
-                          alt="" 
-                        />
-                        <div>
-                          <p className="text-sm font-black text-slate-800 uppercase leading-none">{item.name}</p>
-                          <p className="text-[10px] text-slate-500 mt-1 font-bold">Qty: {item.quantity || 1} • Price: ₹{item.price}</p>
+                      <div
+                        key={idx}
+                        className="flex items-center gap-5 p-4 bg-slate-50 rounded-[2rem] border border-slate-100"
+                      >
+                        <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-white shadow-sm">
+                          <img
+                            src={getImageUrl(item.image)}
+                            className="w-full h-full object-cover"
+                            alt={item.name}
+                            onError={(e) => {
+                              e.target.src =
+                                "https://via.placeholder.com/150?text=Brass";
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-black text-slate-800 uppercase leading-none">
+                            {item.name}
+                          </p>
+                          <div className="flex justify-between items-center mt-2">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">
+                              Qty: {item.quantity || 1}
+                            </p>
+                            <p className="text-sm font-black text-slate-900">
+                              ₹{item.price}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="bg-slate-900 p-6 rounded-[2rem] text-white flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Paid</p>
-                      <h3 className="text-3xl font-black">₹{parseFloat(order.total_amount).toLocaleString()}</h3>
+                  {/* Order Summary Side */}
+                  <div className="lg:col-span-5 flex flex-col justify-between">
+                    <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+                      <div className="relative z-10">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
+                          Final Amount
+                        </p>
+                        <h3 className="text-4xl font-black text-amber-500 tracking-tighter">
+                          ₹{parseFloat(order.total_amount).toLocaleString()}
+                        </h3>
+
+                        <div className="mt-6 pt-6 border-t border-slate-800">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                            <Lucide.MapPin
+                              size={12}
+                              className="text-amber-600"
+                            />{" "}
+                            Delivery Address
+                          </p>
+                          <p className="text-[11px] text-slate-300 mt-2 leading-relaxed italic">
+                            {order.address}
+                          </p>
+                        </div>
+                      </div>
+                      <Lucide.Package
+                        className="absolute -bottom-4 -right-4 text-white/5"
+                        size={120}
+                      />
                     </div>
-                    {order.status === "Pending" && canCancel(order.created_at) && (
-                      <button onClick={() => handleCancel(order.id)} className="bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-xl text-xs font-black transition-all">
-                        CANCEL
-                      </button>
-                    )}
+
+                    {order.status === "Pending" &&
+                      canCancel(order.created_at) && (
+                        <button
+                          onClick={() => handleCancel(order.id)}
+                          className="mt-4 w-full py-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 border border-red-100"
+                        >
+                          Cancel Order
+                        </button>
+                      )}
                   </div>
                 </div>
               </div>
