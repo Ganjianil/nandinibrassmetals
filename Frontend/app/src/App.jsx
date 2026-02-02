@@ -304,8 +304,6 @@ function App() {
       <Router>
         <div className="selection:bg-amber-100 selection:text-amber-900 relative">
           <Header user={user} />
-
-          {/* FLOATING CONTACT BUTTONS (Visible on all pages) */}
           <FloatingContact />
 
           <Routes>
@@ -313,12 +311,16 @@ function App() {
               path="/"
               element={
                 <main className="overflow-x-hidden">
+                  {/* STEP 1: PRODUCTS FIRST (Immediately after Header) */}
+                  {/* --- 1. PRODUCT LIST & CATEGORY (NO TOP GAP) --- */}
+                  <div id="product-list" className="pt-0 pb-20 bg-white">
+                    <ProductList products={products} categories={categories} />
+                  </div>
+
+                  {/* STEP 2: STORYTELLING (Hero and About follow) */}
                   <Hero />
                   <AboutSection />
                   <VideoSection />
-                  <div id="product-list" className="py-20">
-                    <ProductList products={products} categories={categories} />
-                  </div>
                   <GallerySection />
                   <Footer />
                 </main>
