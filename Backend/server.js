@@ -223,31 +223,25 @@ app.post("/api/products/:id/reviews", async (req, res) => {
 // --- ORDERS ---
 // --- UPDATED ORDERS ROUTE ---
 app.post('/api/orders', async (req, res) => {
-    const { userId, username, email, phone, address, cartItems, totalAmount, paymentMethod, transactionId } = req.body;
-    
+    const { userId, username, email, phone, address, cartItems, totalAmount } = req.body;
     if (!userId) return res.status(400).json({ error: "User ID missing." });
 
     try {
         await db.query('BEGIN');
         
-        // Save to Database
-        await db.query(
-            'INSERT INTO orders (user_id, username, email, phone, address, items, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-            [userId, username, email, phone, address, JSON.stringify(cartItems), totalAmount, 'Pending']
-        );
-
-        // Update Stock
+        await db.query('INSERT INTO orders (user_id, username, email, phone, address, items, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+        [userId, username, email, phone, address, JSON.stringify(cartItems), totalAmount, 'Pending']);
+        
         for (const item of cartItems) {
             await db.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.id]);
         }
-
+        
         await db.query('COMMIT');
 
-        // --- TRIGGER EMAILS HERE ---
+        // --- ADD THIS LINE HERE ---
         sendOrderEmails(req.body); 
 
-        res.json({ success: true, message: "Order placed and emails sent!" });
-
+        res.json({ message: "Order placed!" });
     } catch (err) { 
         await db.query('ROLLBACK');
         res.status(500).json({ error: err.message }); 
@@ -409,57 +403,3 @@ app.delete('/api/admin/promos/:id', verifyAdmin, async (req, res) => {
 
 app.listen(PORT, () => console.log(`Server live on ${PORT}`));
 
-const nodemailer = require("nodemailer");
-
-// Function to send the alert to YOU
-const sendOrderAlertToOwner = async (orderData) => {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: `"Nandini Orders" <${process.env.EMAIL_USER}>`,
-    to: "ganjanilkumar1998@gmail.com", // Your email
-    subject: `🔔 NEW ORDER - ₹${orderData.totalAmount} from ${orderData.username}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; border: 2px solid #fbbf24; padding: 20px; border-radius: 15px;">
-        <h2 style="color: #92400e; text-transform: uppercase;">New Order Received!</h2>
-        <p><strong>Customer Name:</strong> ${orderData.username}</p>
-        <p><strong>Mobile:</strong> ${orderData.phone}</p>
-        <p><strong>Address:</strong> ${orderData.address}</p>
-        <hr style="border: 0; border-top: 1px solid #eee;" />
-        <p><strong>Total Amount:</strong> <span style="font-size: 18px; color: #059669;">₹${orderData.totalAmount}</span></p>
-        <p><strong>Payment Method:</strong> ${orderData.paymentMethod}</p>
-        <p><strong>UTR / Transaction ID:</strong> ${orderData.transactionId || "N/A"}</p>
-        <br>
-        <p style="font-size: 12px; color: #666;">Check your Admin Panel for more details.</p>
-      </div>
-    `,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log("Email sent to owner successfully!");
-  } catch (error) {
-    console.error("Nodemailer Error:", error);
-  }
-};
-
-// Inside your POST /api/orders route
-router.post("/api/orders", async (req, res) => {
-  try {
-    // 1. Save order to your database
-    const newOrder = await Order.create(req.body);
-
-    // 2. Trigger the Email Alert
-    sendOrderAlertToOwner(req.body);
-
-    res.status(201).json({ success: true, order: newOrder });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
