@@ -7,11 +7,21 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+// --- NEW CLOUDINARY IMPORTS ---
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || "your_super_secret_key_123"; 
+
+// --- CLOUDINARY CONFIGURATION ---
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // --- DATABASE CONNECTION ---
 const pool = new Pool({
@@ -19,6 +29,7 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+// Note: Your db.query helper automatically converts '?' to '$1, $2'
 const db = {
     query: (text, params = []) => {
         let i = 0;
@@ -36,32 +47,25 @@ app.use(cors({
 }));
 app.use(express.json());
 
-if (!fs.existsSync('./uploads')) { fs.mkdirSync('./uploads'); }
-const storage = multer.diskStorage({
-    destination: './uploads/',
-    filename: (req, file, cb) => { cb(null, Date.now() + path.extname(file.originalname)); }
+// --- UPDATED MULTER FOR CLOUDINARY ---
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'nandini_products',
+        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    },
 });
 const upload = multer({ storage });
 
-// URL Helper - FIXED to prevent 404s on images
-// --- 1. FIXED STATIC MIDDLEWARE ---
-// This ensures the server can actually "see" the folder
-// Keep this one only - it uses path.join for better reliability
-// Remove any other app.use('/uploads'...) lines and keep ONLY this one:
-// Change this line:
-app.use('/uploads', express.static('uploads'));// REPLACE your current getFullUrl with this exact one:
+// --- FIXED URL HELPER ---
 const getFullUrl = (req, imagePath) => {
     if (!imagePath) return null;
-    
-    // If it's already an external link (Unsplash), return as is
-    if (imagePath.startsWith('http')) return imagePath;
-
-    // Remove the domain if it accidentally got saved in the database
-    // We only want the part starting with /uploads/
-    const fileName = imagePath.split('/uploads/').pop();
-    
-    return `/uploads/${fileName}`;
+    return imagePath; // Cloudinary returns full URL
 };
+
+// Keep static for any legacy files left on the server
+app.use('/uploads', express.static('uploads'));
+
 // Auth Guard
 const verifyAdmin = (req, res, next) => {
     const session = req.cookies.user_session;
@@ -212,8 +216,9 @@ app.put("/api/admin/orders/:id", verifyAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Update failed" }); }
 });
 
+// CREATE CATEGORY
 app.post('/api/admin/categories', verifyAdmin, upload.single('image'), async (req, res) => {
-    const img = req.file ? `/uploads/${req.file.filename}` : null;
+    const img = req.file ? req.file.path : null; 
     try {
         await db.query('INSERT INTO categories (name, image) VALUES (?, ?)', [req.body.name, img]);
         res.json({ message: "Category created" });
@@ -227,57 +232,34 @@ app.delete('/api/admin/categories/:id', verifyAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Category linked to products" }); }
 });
 
-// ADD PRODUCT
-// ADD PRODUCT - UPDATED TO INCLUDE DISCOUNT PRICE
-// ADD PRODUCT - FIXED DISCOUNT PRICE PARSING
-// ADD PRODUCT – FIXED VERSION (safe parsing from req.body)
-// ADD PRODUCT - SAFE PARSING VERSION (no destructuring issues)
+// ADD PRODUCT (Fixed to use '?' helper consistently)
 app.post("/api/admin/products", verifyAdmin, upload.single('image'), async (req, res) => {
-    console.log("=== DEBUG: Incoming product creation ===");
-    console.log("req.body (raw):", req.body);
-    console.log("req.file:", req.file ? req.file.filename : "no file uploaded");
-
-    const img = req.file ? `/uploads/${req.file.filename}` : null;
-
-    // Read fields directly from req.body (safer than destructuring with multer) discount_price
-
-    const name              = (req.body.name || "").trim();
-    const price_raw         = req.body.price || "0";
-    const discount_price_raw = req.body.discount_price || "0";      // ← this must appear in logs
-    const stock_raw         = req.body.stock || "0";
-    const description       = (req.body.description || "").trim();
-    const long_description  = (req.body.long_description || "").trim();
-    const category_id_raw   = req.body.category_id || null;
-
-    // Parse numbers safely
-    const price          = parseFloat(price_raw) || 0;
-    const discount_price = parseFloat(discount_price_raw) || 0;
-    const stock          = parseInt(stock_raw) || 0;
-    const category_id    = category_id_raw ? parseInt(category_id_raw) : null;
-
-    // DEBUG: Show exactly what will be inserted
-    console.log("Parsed values ready for DB:");
-    console.log({ name, price, discount_price, stock, category_id, img });
+    const img = req.file ? req.file.path : null; 
+    const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
 
     try {
         await db.query(
             `INSERT INTO products 
              (name, price, discount_price, stock, description, long_description, category_id, image)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [name, price, discount_price, stock, description, long_description, category_id, img]
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                name, 
+                parseFloat(price) || 0, 
+                parseFloat(discount_price) || 0, 
+                parseInt(stock) || 0, 
+                description, 
+                long_description, 
+                category_id ? parseInt(category_id) : null, 
+                img
+            ]
         );
-
-        console.log("Product inserted successfully");
         res.json({ message: "Product added successfully!" });
     } catch (err) {
-        console.error("INSERT ERROR:", err.message);
-        res.status(500).json({ 
-            error: "Failed to add product", 
-            details: err.message 
-        });
+        res.status(500).json({ error: "Failed to add product", details: err.message });
     }
 });
-// DELETE PRODUCT (The logic that fixes your error)
+
+// DELETE PRODUCT
 app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
     const productId = req.params.id;
     try {
@@ -289,23 +271,20 @@ app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
             return res.status(404).json({ error: "Product not found" });
         }
         await db.query('COMMIT');
-        res.json({ message: "Product and associated reviews deleted successfully" });
+        res.json({ message: "Deleted successfully" });
     } catch (err) {
         await db.query('ROLLBACK');
-        res.status(500).json({ error: "Delete failed. Product might be in an order." });
+        res.status(500).json({ error: "Delete failed" });
     }
 });
 
 // UPDATE PRODUCT
-// UPDATE PRODUCT - UPDATED TO INCLUDE DISCOUNT PRICE
 app.put("/api/admin/products/:id", verifyAdmin, upload.single('image'), async (req, res) => {
     const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
-    const img = req.file ? `/uploads/${req.file.filename}` : null;
+    const img = req.file ? req.file.path : null;
     
     try {
-        // We use COALESCE or separate logic to handle the discount_price update
         const d_price = discount_price ? parseFloat(discount_price) : null;
-
         if (img) {
             await db.query(
                 "UPDATE products SET name=?, price=?, discount_price=?, stock=?, description=?, long_description=?, category_id=?, image=? WHERE id=?", 
@@ -322,7 +301,8 @@ app.put("/api/admin/products/:id", verifyAdmin, upload.single('image'), async (r
         res.status(500).json({ error: "Update failed" }); 
     }
 });
-// Admin Promos
+
+// PROMOS
 app.get('/api/admin/promos', verifyAdmin, async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM promo_codes ORDER BY id DESC');
