@@ -3,7 +3,13 @@ import api from "./api";
 import * as Lucide from "lucide-react";
 
 const BASE_URL = "https://nandinibrassmetals-1.onrender.com"; // ← centralize this
-
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return "https://via.placeholder.com/150";
+  // If the path already starts with http (Cloudinary), use it directly
+  if (imagePath.startsWith("http")) return imagePath;
+  // Otherwise, it's an old local path, add the BASE_URL
+  return `${BASE_URL}${imagePath}`;
+};
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
@@ -252,7 +258,10 @@ const Admin = () => {
               {orders.map((order) => {
                 let cartData = [];
                 try {
-                  cartData = typeof order.items === "string" ? JSON.parse(order.items) : order.items || [];
+                  cartData =
+                    typeof order.items === "string"
+                      ? JSON.parse(order.items)
+                      : order.items || [];
                 } catch (e) {
                   console.error(e);
                 }
@@ -264,11 +273,7 @@ const Admin = () => {
                   >
                     <div className="flex items-center gap-6 flex-1 w-full">
                       <img
-                        src={
-                          firstItem.image
-                            ? `${BASE_URL}${firstItem.image}`
-                            : "https://via.placeholder.com/150"
-                        }
+                        src={getImageUrl(firstItem.image)}
                         onError={(e) => {
                           e.target.src = "https://via.placeholder.com/150";
                         }}
@@ -421,12 +426,10 @@ const Admin = () => {
                       className="cursor-pointer"
                     >
                       <img
-                        src={
-                          cat.image
-                            ? `${BASE_URL}${cat.image}`
-                            : "https://via.placeholder.com/150"
-                        }
-                        onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                        src={getImageUrl(cat.image)}
+                        onError={(e) => {
+                          e.target.src = "https://via.placeholder.com/150";
+                        }}
                         className="w-full h-32 object-cover rounded-2xl mb-4"
                         alt={cat.name}
                       />
@@ -434,7 +437,11 @@ const Admin = () => {
                         {cat.name}
                       </h3>
                       <p className="text-xs font-bold text-slate-400 mt-1">
-                        Products: {products.filter((p) => p.category_id === cat.id).length}
+                        Products:{" "}
+                        {
+                          products.filter((p) => p.category_id === cat.id)
+                            .length
+                        }
                       </p>
                     </div>
                   </div>
@@ -450,12 +457,10 @@ const Admin = () => {
                 </button>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-8 rounded-3xl border shadow-sm">
                   <img
-                    src={
-                      viewingProduct.image
-                        ? `${BASE_URL}${viewingProduct.image}`
-                        : "https://via.placeholder.com/400"
-                    }
-                    onError={(e) => { e.target.src = "https://via.placeholder.com/400"; }}
+                    src={getImageUrl(viewingProduct.image)}
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/400";
+                    }}
                     className="w-full rounded-2xl shadow-lg border-4 border-slate-50"
                     alt={viewingProduct.name}
                   />
@@ -480,7 +485,8 @@ const Admin = () => {
                           Long Description
                         </h4>
                         <p className="text-slate-500 text-sm whitespace-pre-wrap">
-                          {viewingProduct.long_description || "No long description available."}
+                          {viewingProduct.long_description ||
+                            "No long description available."}
                         </p>
                       </div>
                     </div>
@@ -505,7 +511,9 @@ const Admin = () => {
                   {products
                     .filter((p) => p.category_id === selectedCategory.id)
                     .map((p) => {
-                      const hasDiscount = p.discount_price != null && Number(p.discount_price) > 0;
+                      const hasDiscount =
+                        p.discount_price != null &&
+                        Number(p.discount_price) > 0;
 
                       return (
                         <div
@@ -520,7 +528,9 @@ const Admin = () => {
                                   ? `${BASE_URL}${p.image}`
                                   : "https://via.placeholder.com/64"
                               }
-                              onError={(e) => { e.target.src = "https://via.placeholder.com/64"; }}
+                              onError={(e) => {
+                                e.target.src = "https://via.placeholder.com/64";
+                              }}
                               className="w-16 h-16 object-cover rounded-xl"
                               alt={p.name}
                             />
@@ -596,14 +606,21 @@ const Admin = () => {
                   placeholder="Product Name"
                   className="w-full p-4 border-2 rounded-2xl font-bold"
                   value={newProduct.name}
-                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, name: e.target.value })
+                  }
                   required
                 />
 
                 <select
                   className="w-full p-4 border-2 rounded-2xl bg-slate-50 font-bold"
                   value={newProduct.category_id}
-                  onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      category_id: e.target.value,
+                    })
+                  }
                   required
                 >
                   <option value="">Select Category</option>
@@ -626,7 +643,9 @@ const Admin = () => {
                       placeholder="e.g. 5000"
                       className="w-full p-4 border-2 rounded-2xl font-bold"
                       value={newProduct.price}
-                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                      onChange={(e) =>
+                        setNewProduct({ ...newProduct, price: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -641,24 +660,41 @@ const Admin = () => {
                       placeholder="e.g. 3999"
                       className="w-full p-4 border-2 border-blue-100 bg-blue-50/30 rounded-2xl font-bold text-blue-600 outline-blue-500"
                       value={newProduct.discount_price || ""}
-                      onChange={(e) => setNewProduct({ ...newProduct, discount_price: e.target.value })}
+                      onChange={(e) =>
+                        setNewProduct({
+                          ...newProduct,
+                          discount_price: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </div>
 
-                {newProduct.price && newProduct.discount_price && Number(newProduct.discount_price) > 0 && (
-                  <div className="p-3 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3">
-                    <Lucide.TrendingDown size={18} className="text-green-600" />
-                    <span className="text-xs font-bold text-green-700">
-                      Customer saves ₹
-                      {(Number(newProduct.price) - Number(newProduct.discount_price)).toFixed(2)}{" "}
-                      (
-                      {Math.round(
-                        ((Number(newProduct.price) - Number(newProduct.discount_price)) / Number(newProduct.price)) * 100
-                      )}%
-                    </span>
-                  </div>
-                )}
+                {newProduct.price &&
+                  newProduct.discount_price &&
+                  Number(newProduct.discount_price) > 0 && (
+                    <div className="p-3 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3">
+                      <Lucide.TrendingDown
+                        size={18}
+                        className="text-green-600"
+                      />
+                      <span className="text-xs font-bold text-green-700">
+                        Customer saves ₹
+                        {(
+                          Number(newProduct.price) -
+                          Number(newProduct.discount_price)
+                        ).toFixed(2)}{" "}
+                        (
+                        {Math.round(
+                          ((Number(newProduct.price) -
+                            Number(newProduct.discount_price)) /
+                            Number(newProduct.price)) *
+                            100,
+                        )}
+                        %
+                      </span>
+                    </div>
+                  )}
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
@@ -670,7 +706,9 @@ const Admin = () => {
                     placeholder="Stock Qty"
                     className="w-full p-4 border-2 rounded-2xl font-bold"
                     value={newProduct.stock}
-                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                    onChange={(e) =>
+                      setNewProduct({ ...newProduct, stock: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -679,14 +717,24 @@ const Admin = () => {
                   placeholder="Short Summary (Display on card)"
                   className="w-full p-4 border-2 rounded-2xl h-24 font-medium"
                   value={newProduct.description}
-                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      description: e.target.value,
+                    })
+                  }
                 />
 
                 <textarea
                   placeholder="Full Detailed Description"
                   className="w-full p-4 border-2 rounded-2xl h-48 font-medium"
                   value={newProduct.long_description}
-                  onChange={(e) => setNewProduct({ ...newProduct, long_description: e.target.value })}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      long_description: e.target.value,
+                    })
+                  }
                 />
 
                 <div className="p-4 bg-slate-50 border-2 border-dashed rounded-2xl">
@@ -728,7 +776,8 @@ const Admin = () => {
               <Lucide.X size={24} />
             </button>
             <h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2">
-              <Lucide.PackageSearch className="text-blue-600" /> Order Items List
+              <Lucide.PackageSearch className="text-blue-600" /> Order Items
+              List
             </h2>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {selectedOrderItems.map((item, idx) => (
@@ -742,7 +791,9 @@ const Admin = () => {
                         ? `${BASE_URL}${item.image}`
                         : "https://via.placeholder.com/80"
                     }
-                    onError={(e) => { e.target.src = "https://via.placeholder.com/80"; }}
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/80";
+                    }}
                     className="w-20 h-20 object-cover rounded-2xl"
                     alt={item.name}
                   />
@@ -752,10 +803,16 @@ const Admin = () => {
                     </h4>
                     <div className="flex gap-4 mt-1 text-xs font-bold text-slate-500">
                       <p>
-                        Qty: <span className="text-blue-600">{item.quantity || 1}</span>
+                        Qty:{" "}
+                        <span className="text-blue-600">
+                          {item.quantity || 1}
+                        </span>
                       </p>
                       <p>
-                        Price: <span className="text-slate-900">₹{Number(item.price).toFixed(2)}</span>
+                        Price:{" "}
+                        <span className="text-slate-900">
+                          ₹{Number(item.price).toFixed(2)}
+                        </span>
                       </p>
                     </div>
                   </div>
