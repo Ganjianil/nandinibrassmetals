@@ -1,0 +1,145 @@
+const express = require('express');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const { Pool } = require('pg'); 
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const nodemailer = require("nodemailer"); // --- ADDED THIS ---
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// --- NODEMAILER TRANSPORTER CONFIG ---
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER, // Your Gmail
+        pass: process.env.EMAIL_PASS, // Your 16-digit App Password
+    },
+});
+
+// --- CLOUDINARY CONFIGURATION ---
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// --- DATABASE CONNECTION ---
+const pool = new Pool({
+    connectionString: process.env.db_url,
+    ssl: { rejectUnauthorized: false }
+});
+
+const db = {
+    query: (text, params = []) => {
+        let i = 0;
+        const formattedText = text.replace(/\?/g, () => `$${++i}`);
+        return pool.query(formattedText, params);
+    }
+};
+
+// --- MIDDLEWARE ---
+app.use(cookieParser());
+app.use(cors({
+    origin: ["http://localhost:5173", "https://nandhinicrafts.netlify.app"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+}));
+app.use(express.json());
+
+// --- EMAIL LOGIC FUNCTION ---
+const sendOrderEmails = async (orderData) => {
+    // 1. Alert for YOU (Owner)
+    const ownerMailOptions = {
+        from: `"Nandini Orders" <${process.env.EMAIL_USER}>`,
+        to: "ganjanilkumar1998@gmail.com",
+        subject: `🚨 NEW ORDER - ₹${orderData.totalAmount} from ${orderData.username}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; border: 2px solid #fbbf24; padding: 20px; border-radius: 15px;">
+                <h2 style="color: #92400e;">New Order Received!</h2>
+                <p><strong>Customer:</strong> ${orderData.username}</p>
+                <p><strong>Mobile:</strong> ${orderData.phone}</p>
+                <p><strong>Address:</strong> ${orderData.address}</p>
+                <hr/>
+                <p><strong>Total Amount:</strong> ₹${orderData.totalAmount}</p>
+                <p><strong>Payment:</strong> ${orderData.paymentMethod}</p>
+                <p>Check Admin Panel for details.</p>
+            </div>
+        `,
+    };
+
+    // 2. Confirmation for CUSTOMER
+    const customerMailOptions = {
+        from: `"Nandini Brass Metals" <${process.env.EMAIL_USER}>`,
+        to: orderData.email,
+        subject: `Order Confirmed! | Nandini Brass Metals`,
+        html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                <div style="background-color: #0f172a; padding: 30px; text-align: center; color: #fbbf24;">
+                    <h1>Nandini Brass Metals</h1>
+                </div>
+                <div style="padding: 20px;">
+                    <h2>Hi ${orderData.username},</h2>
+                    <p>Your order for <strong>₹${orderData.totalAmount}</strong> has been successfully placed!</p>
+                    <p>We are preparing your items for delivery to: <br/><em>${orderData.address}</em></p>
+                    <hr/>
+                    <p>Thank you for shopping with us!</p>
+                </div>
+            </div>
+        `
+    };
+
+    try {
+        await Promise.all([
+            transporter.sendMail(ownerMailOptions),
+            transporter.sendMail(customerMailOptions)
+        ]);
+        console.log("Emails sent successfully!");
+    } catch (error) {
+        console.error("Email error:", error);
+    }
+};
+
+// --- UPDATED ORDERS ROUTE ---
+app.post('/api/orders', async (req, res) => {
+    const { userId, username, email, phone, address, cartItems, totalAmount, paymentMethod, transactionId } = req.body;
+    
+    if (!userId) return res.status(400).json({ error: "User ID missing." });
+
+    try {
+        await db.query('BEGIN');
+        
+        // Save to Database
+        await db.query(
+            'INSERT INTO orders (user_id, username, email, phone, address, items, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+            [userId, username, email, phone, address, JSON.stringify(cartItems), totalAmount, 'Pending']
+        );
+
+        // Update Stock
+        for (const item of cartItems) {
+            await db.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.id]);
+        }
+
+        await db.query('COMMIT');
+
+        // --- TRIGGER EMAILS HERE ---
+        sendOrderEmails(req.body); 
+
+        res.json({ success: true, message: "Order placed and emails sent!" });
+
+    } catch (err) { 
+        await db.query('ROLLBACK');
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+// ... Keep all your other routes (Login, Register, Admin, etc.) below this ...
+
+app.listen(PORT, () => console.log(`Server live on ${PORT}`));

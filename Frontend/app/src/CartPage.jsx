@@ -16,23 +16,40 @@ const CartPage = () => {
     return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
   };
 
-  const handleCheckout = async () => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user) return alert("Please login to place an order!");
+const handleCheckout = async () => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (!user) return alert("Please login to place an order!");
 
-    try {
-      await axios.post(`${API_BASE_URL}/api/orders`, {
-        userId: user.id,
-        totalAmount: totalPrice,
-        items: cart,
-      });
-      alert("Order Placed Successfully!");
+  // 1. Collect Shipping Details (You can also use a Modal or Form here)
+  const phone = prompt("Please enter your Phone Number:");
+  const address = prompt("Please enter your Full Shipping Address:");
+
+  if (!phone || !address) {
+    return alert("Phone and Address are required to deliver your order!");
+  }
+
+  try {
+    // 2. Send COMPLETE data to the backend
+    const response = await axios.post(`${API_BASE_URL}/api/orders`, {
+      userId: user.id,
+      username: user.username,
+      email: user.email, // This is crucial for the customer email!
+      phone: phone,
+      address: address,
+      totalAmount: totalPrice,
+      cartItems: cart, // Matches the backend variable name
+      paymentMethod: "Cash on Delivery", // Default or from your state
+    });
+
+    if (response.data.success) {
+      alert("Order Placed Successfully! Check your email for confirmation.");
       clearCart();
-    } catch (err) {
-      alert("Checkout failed");
     }
-  };
-
+  } catch (err) {
+    console.error("Checkout Error:", err);
+    alert(err.response?.data?.error || "Checkout failed. Please try again.");
+  }
+};
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 lg:py-20">
       <div className="flex items-center gap-4 mb-12">

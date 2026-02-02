@@ -1,4 +1,6 @@
 const express = require('express');
+const nodemailer = require("nodemailer"); // --- ADDED THIS ---
+
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg'); 
@@ -22,6 +24,72 @@ cloudinary.config({
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
+// --- NODEMAILER TRANSPORTER CONFIG ---
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER, // Your Gmail
+        pass: process.env.EMAIL_PASS, // Your 16-digit App Password
+    },
+});
+
+// --- EMAIL LOGIC FUNCTION ---
+const sendOrderEmails = async (orderData) => {
+    // 1. Alert for YOU (Owner)
+    const ownerMailOptions = {
+        from: `"Nandini Orders" <${process.env.EMAIL_USER}>`,
+        to: "ganjanilkumar1998@gmail.com",
+        subject: `🚨 NEW ORDER - ₹${orderData.totalAmount} from ${orderData.username}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; border: 2px solid #fbbf24; padding: 20px; border-radius: 15px;">
+                <h2 style="color: #92400e;">New Order Received!</h2>
+                <p><strong>Customer:</strong> ${orderData.username}</p>
+                <p><strong>Mobile:</strong> ${orderData.phone}</p>
+                <p><strong>Address:</strong> ${orderData.address}</p>
+                <hr/>
+                <p><strong>Total Amount:</strong> ₹${orderData.totalAmount}</p>
+                <p><strong>Payment:</strong> ${orderData.paymentMethod}</p>
+                <p>Check Admin Panel for details.</p>
+            </div>
+        `,
+    };
+
+    // 2. Confirmation for CUSTOMER
+    const customerMailOptions = {
+        from: `"Nandini Brass Metals" <${process.env.EMAIL_USER}>`,
+        to: orderData.email,
+        subject: `Order Confirmed! | Nandini Brass Metals`,
+        html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                <div style="background-color: #0f172a; padding: 30px; text-align: center; color: #fbbf24;">
+                    <h1>Nandini Brass Metals</h1>
+                </div>
+                <div style="padding: 20px;">
+                    <h2>Hi ${orderData.username},</h2>
+                    <p>Your order for <strong>₹${orderData.totalAmount}</strong> has been successfully placed!</p>
+                    <p>We are preparing your items for delivery to: <br/><em>${orderData.address}</em></p>
+                    <hr/>
+                    <p>Thank you for shopping with us!</p>
+                </div>
+            </div>
+        `
+    };
+
+    try {
+        await Promise.all([
+            transporter.sendMail(ownerMailOptions),
+            transporter.sendMail(customerMailOptions)
+        ]);
+        console.log("Emails sent successfully!");
+    } catch (error) {
+        console.error("Email error:", error);
+    }
+};
+
+
+
+
+
 
 // --- DATABASE CONNECTION ---
 const pool = new Pool({
@@ -153,20 +221,33 @@ app.post("/api/products/:id/reviews", async (req, res) => {
 });
 
 // --- ORDERS ---
+// --- UPDATED ORDERS ROUTE ---
 app.post('/api/orders', async (req, res) => {
-    const { userId, username, email, phone, address, cartItems, totalAmount } = req.body;
-    if (!userId) return res.status(400).json({ error: "User ID missing. Please re-login." });
+    const { userId, username, email, phone, address, cartItems, totalAmount, paymentMethod, transactionId } = req.body;
+    
+    if (!userId) return res.status(400).json({ error: "User ID missing." });
+
     try {
         await db.query('BEGIN');
-        const userCheck = await db.query('SELECT id FROM users WHERE id = ?', [userId]);
-        if (userCheck.rows.length === 0) throw new Error("User invalid.");
-        await db.query('INSERT INTO orders (user_id, username, email, phone, address, items, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-        [userId, username, email, phone, address, JSON.stringify(cartItems), totalAmount, 'Pending']);
+        
+        // Save to Database
+        await db.query(
+            'INSERT INTO orders (user_id, username, email, phone, address, items, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+            [userId, username, email, phone, address, JSON.stringify(cartItems), totalAmount, 'Pending']
+        );
+
+        // Update Stock
         for (const item of cartItems) {
             await db.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.id]);
         }
+
         await db.query('COMMIT');
-        res.json({ message: "Order placed!" });
+
+        // --- TRIGGER EMAILS HERE ---
+        sendOrderEmails(req.body); 
+
+        res.json({ success: true, message: "Order placed and emails sent!" });
+
     } catch (err) { 
         await db.query('ROLLBACK');
         res.status(500).json({ error: err.message }); 
@@ -327,3 +408,58 @@ app.delete('/api/admin/promos/:id', verifyAdmin, async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server live on ${PORT}`));
+
+const nodemailer = require("nodemailer");
+
+// Function to send the alert to YOU
+const sendOrderAlertToOwner = async (orderData) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: `"Nandini Orders" <${process.env.EMAIL_USER}>`,
+    to: "ganjanilkumar1998@gmail.com", // Your email
+    subject: `🔔 NEW ORDER - ₹${orderData.totalAmount} from ${orderData.username}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; border: 2px solid #fbbf24; padding: 20px; border-radius: 15px;">
+        <h2 style="color: #92400e; text-transform: uppercase;">New Order Received!</h2>
+        <p><strong>Customer Name:</strong> ${orderData.username}</p>
+        <p><strong>Mobile:</strong> ${orderData.phone}</p>
+        <p><strong>Address:</strong> ${orderData.address}</p>
+        <hr style="border: 0; border-top: 1px solid #eee;" />
+        <p><strong>Total Amount:</strong> <span style="font-size: 18px; color: #059669;">₹${orderData.totalAmount}</span></p>
+        <p><strong>Payment Method:</strong> ${orderData.paymentMethod}</p>
+        <p><strong>UTR / Transaction ID:</strong> ${orderData.transactionId || "N/A"}</p>
+        <br>
+        <p style="font-size: 12px; color: #666;">Check your Admin Panel for more details.</p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log("Email sent to owner successfully!");
+  } catch (error) {
+    console.error("Nodemailer Error:", error);
+  }
+};
+
+// Inside your POST /api/orders route
+router.post("/api/orders", async (req, res) => {
+  try {
+    // 1. Save order to your database
+    const newOrder = await Order.create(req.body);
+
+    // 2. Trigger the Email Alert
+    sendOrderAlertToOwner(req.body);
+
+    res.status(201).json({ success: true, order: newOrder });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
