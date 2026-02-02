@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import * as Lucide from "lucide-react";
 
-const API_BASE_URL = "https://nandinibrassmetals.onrender.com";
+const API_BASE_URL = "https://nandinibrassmetals.vercel.app.com";
 
 const CartPage = () => {
   const { cart, removeFromCart, updateQuantity, totalPrice, clearCart } =

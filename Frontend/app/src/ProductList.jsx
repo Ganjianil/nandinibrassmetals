@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
 
-const API_BASE_URL = "https://nandinibrassmetals.onrender.com";
+const API_BASE_URL = "https://nandinibrassmetals.vercel.app";
 
 // --- REDESIGNED BEAUTIFUL PRODUCT CARD ---
 const ProductCard = ({

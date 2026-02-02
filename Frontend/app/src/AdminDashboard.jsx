@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import api from "./api";
 import * as Lucide from "lucide-react";
 
-const BASE_URL = "https://nandinibrassmetals-1.onrender.com"; // ← centralize this
+const BASE_URL = "https://nandinibrassmetals.vercel.app"; // ← centralize this
 const getImageUrl = (imagePath) => {
   if (!imagePath) return "https://via.placeholder.com/150";
   // If the path already starts with http (Cloudinary), use it directly

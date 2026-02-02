@@ -32,7 +32,7 @@ const Cart = () => {
     if (!path) return "https://via.placeholder.com/150?text=Brass+Metals";
     return path.startsWith("http")
       ? path
-      : `https://nandinibrassmetals.onrender.com${path}`;
+      : `https://nandinibrassmetals.vercel.app${path}`;
   };
 
   useEffect(() => {
