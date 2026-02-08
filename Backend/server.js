@@ -32,6 +32,20 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS, // Your 16-digit App Password
     },
 });
+const productStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "nandini_products",
+    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+  },
+});
+
+const productUpload = multer({
+  storage: productStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+});
 
 // --- EMAIL LOGIC FUNCTION ---
 const sendOrderEmails = async (orderData) => {
@@ -114,6 +128,12 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 }));
 app.use(express.json());
+app.use((req, res, next) => {
+    if (req.path === '/api/admin/products') {
+        console.log("Method:", req.method, "Content-Type:", req.headers['content-type']);
+    }
+    next();
+});
 
 // --- UPDATED MULTER FOR CLOUDINARY ---
 const storage = new CloudinaryStorage({
@@ -127,10 +147,17 @@ const upload = multer({ storage });
 
 // --- FIXED URL HELPER ---
 const getFullUrl = (req, imagePath) => {
-    if (!imagePath) return null;
-    return imagePath; // Cloudinary returns full URL
+    if (!imagePath) return [];
+    
+    try {
+        // This converts '["url1", "url2"]' into a real Javascript Array
+        const parsed = JSON.parse(imagePath);
+        return Array.isArray(parsed) ? parsed : [parsed];
+    } catch (e) {
+        // Fallback: If it's already a plain string (legacy data), wrap it in an array
+        return [imagePath];
+    }
 };
-
 // Keep static for any legacy files left on the server
 app.use('/uploads', express.static('uploads'));
 
@@ -152,7 +179,54 @@ app.post('/api/register', async (req, res) => {
         res.status(201).json({ message: "User registered" });
     } catch (err) { res.status(500).json({ error: "Register failed" }); }
 });
+// --- CUSTOM CONSULTATIONS ENDPOINT ---
+app.post('/api/custom-consultations', async (req, res) => {
+    const { metal, phone, height, weight, state, expectedDate, details } = req.body;
 
+    try {
+        // 1. Save to Database (Create this table first)
+        await db.query(
+            `INSERT INTO custom_requests 
+             (metal, phone, height, weight, location, delivery_date, details, status) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [metal, phone, height, weight, state, expectedDate, details, 'New']
+        );
+
+        // 2. Send Email Alert to You
+        const mailOptions = {
+            from: `"Nandini CUSTOM" <${process.env.EMAIL_USER}>`,
+            to: "ganjanilkumar1998@gmail.com", // Your email
+            subject: `🕉️ NEW TEMPLE WORK: ${metal} Idol Inquiry from ${state}`,
+            html: `
+                <div style="font-family: serif; border: 5px solid #b45309; padding: 30px;">
+                    <h1 style="color: #b45309;">New Custom Request</h1>
+                    <p><strong>Phone:</strong> ${phone}</p>
+                    <p><strong>Metal:</strong> ${metal}</p>
+                    <p><strong>Scale:</strong> ${height} ft / ${weight} kg</p>
+                    <p><strong>Location:</strong> ${state}</p>
+                    <p><strong>Deadline:</strong> ${expectedDate}</p>
+                    <hr/>
+                    <p><strong>Details:</strong> ${details}</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ success: true, message: "Request captured" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to process request" });
+    }
+});
+app.get('/api/admin/custom-inquiries', verifyAdmin, async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT * FROM custom_requests ORDER BY created_at DESC');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch inquiries" });
+    }
+});
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -308,31 +382,54 @@ app.delete('/api/admin/categories/:id', verifyAdmin, async (req, res) => {
 });
 
 // ADD PRODUCT (Fixed to use '?' helper consistently)
-app.post("/api/admin/products", verifyAdmin, upload.single('image'), async (req, res) => {
-    const img = req.file ? req.file.path : null; 
-    const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
+// --- UPDATED ADD PRODUCT ROUTE ---
+// --- STABLE MULTI-IMAGE ADD PRODUCT ---
 
+
+app.post(
+  "/api/admin/products",
+  verifyAdmin,
+  productUpload.array("images", 10), // ✅ FIX
+  async (req, res) => {
     try {
-        await db.query(
-            `INSERT INTO products 
-             (name, price, discount_price, stock, description, long_description, category_id, image)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                name, 
-                parseFloat(price) || 0, 
-                parseFloat(discount_price) || 0, 
-                parseInt(stock) || 0, 
-                description, 
-                long_description, 
-                category_id ? parseInt(category_id) : null, 
-                img
-            ]
-        );
-        res.json({ message: "Product added successfully!" });
+      console.log("FILES:", req.files.length);
+
+      const imageUrls = req.files.map((f) => f.path);
+
+      const {
+        name,
+        price,
+        discount_price,
+        stock,
+        description,
+        long_description,
+        category_id,
+      } = req.body;
+
+      await pool.query(
+        `INSERT INTO products
+         (name, price, discount_price, stock, description, long_description, category_id, image)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          name,
+          Number(price),
+          discount_price ? Number(discount_price) : null,
+          Number(stock),
+          description,
+          long_description,
+          category_id ? Number(category_id) : null,
+          JSON.stringify(imageUrls),
+        ]
+      );
+
+      res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: "Failed to add product", details: err.message });
+      console.error(err);
+      res.status(500).json({ error: err.message });
     }
-});
+  }
+);
+
 
 // DELETE PRODUCT
 app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
@@ -354,25 +451,34 @@ app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
 });
 
 // UPDATE PRODUCT
-app.put("/api/admin/products/:id", verifyAdmin, upload.single('image'), async (req, res) => {
+// --- UPDATE PRODUCT ROUTE ---
+app.put("/api/admin/products/:id", verifyAdmin, upload.array('images', 10), async (req, res) => {
     const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
-    const img = req.file ? req.file.path : null;
+    
+    // Get array of paths from Cloudinary (if new images were uploaded)
+    const imageUrls = req.files && req.files.length > 0 
+        ? req.files.map(file => file.path) 
+        : null;
     
     try {
         const d_price = discount_price ? parseFloat(discount_price) : null;
-        if (img) {
-            await db.query(
-                "UPDATE products SET name=?, price=?, discount_price=?, stock=?, description=?, long_description=?, category_id=?, image=? WHERE id=?", 
-                [name, parseFloat(price), d_price, parseInt(stock), description, long_description, parseInt(category_id), img, req.params.id]
+        
+        if (imageUrls) {
+            // If new images uploaded, overwrite the image column with the new JSON array
+            await pool.query(
+                "UPDATE products SET name=$1, price=$2, discount_price=$3, stock=$4, description=$5, long_description=$6, category_id=$7, image=$8 WHERE id=$9", 
+                [name, parseFloat(price), d_price, parseInt(stock), description, long_description, parseInt(category_id), JSON.stringify(imageUrls), req.params.id]
             );
         } else {
-            await db.query(
-                "UPDATE products SET name=?, price=?, discount_price=?, stock=?, description=?, long_description=?, category_id=? WHERE id=?", 
+            // No new images, keep existing image column
+            await pool.query(
+                "UPDATE products SET name=$1, price=$2, discount_price=$3, stock=$4, description=$5, long_description=$6, category_id=$7 WHERE id=$8", 
                 [name, parseFloat(price), d_price, parseInt(stock), description, long_description, parseInt(category_id), req.params.id]
             );
         }
         res.json({ message: "Updated successfully" });
     } catch (err) { 
+        console.error(err);
         res.status(500).json({ error: "Update failed" }); 
     }
 });

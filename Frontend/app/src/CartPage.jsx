@@ -2,9 +2,10 @@ import React from "react";
 import { useCart } from "./CartContext";
 import { Link } from "react-router-dom";
 import axios from "axios";
+import api from "./api";
 import * as Lucide from "lucide-react";
 
-const API_BASE_URL = "https://nandinibrassmetals.vercel.app.com";
+const API_BASE_URL = api.defaults.baseURL; 
 
 const CartPage = () => {
   const { cart, removeFromCart, updateQuantity, totalPrice, clearCart } =

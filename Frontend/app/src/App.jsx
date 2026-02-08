@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import api from "./api";
 import axios from "axios";
 import * as Lucide from "lucide-react";
 import Cookies from "js-cookie";
@@ -17,10 +18,12 @@ import Cart from "./Cart";
 import Auth from "./Auth";
 import AdminDashboard from "./AdminDashboard";
 import Orders from "./Orders";
-import FloatingContact from "./FloatingContact"; // Ensure this is imported
+import FloatingContact from "./FloatingContact";
+import CustomOrderSuite from "./CustomOrderSuite";
 import "./index.css";
 
-// --- SECTION COMPONENTS ---
+// --- RESTORING YOUR ORIGINAL SECTION COMPONENTS ---
+
 const VideoSection = () => {
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
@@ -236,18 +239,17 @@ const Footer = () => (
 );
 
 // --- MAIN APP COMPONENT ---
+
 function App() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  // 1. UPDATE USER ON LOAD & VIA CUSTOM EVENT (No refresh needed)
   useEffect(() => {
     const checkUser = () => {
       const sessionCookie = Cookies.get("user_session");
       const localUser = localStorage.getItem("user");
-
       let foundUser = null;
       try {
         if (sessionCookie) foundUser = JSON.parse(sessionCookie);
@@ -257,10 +259,7 @@ function App() {
       }
       setUser(foundUser);
     };
-
     checkUser();
-
-    // Event listeners for immediate UI updates
     window.addEventListener("userLogin", checkUser);
     window.addEventListener("storage", checkUser);
     return () => {
@@ -271,18 +270,16 @@ function App() {
 
   const isAdmin = user && user.email?.toLowerCase() === "admin@gmail.com";
 
-  // 2. FETCH PRODUCTS AND CATEGORIES
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [prodRes, catRes] = await Promise.all([
-          axios.get("https://nandinibrassmetals.vercel.app/products"),
-          axios.get("https://nandinibrassmetals.vercel.app/api/categories"),
+          api.get("/products"),
+          api.get("/api/categories"),
         ]);
         setProducts(prodRes.data);
         setCategories(catRes.data);
       } catch (err) {
-
         console.error("Fetch Error:", err);
       } finally {
         setLoading(false);
@@ -310,13 +307,10 @@ function App() {
               path="/"
               element={
                 <main className="overflow-x-hidden">
-                  {/* STEP 1: PRODUCTS FIRST (Immediately after Header) */}
-                  {/* --- 1. PRODUCT LIST & CATEGORY (NO TOP GAP) --- */}
                   <div id="product-list" className="pt-0 pb-20 bg-white">
                     <ProductList products={products} categories={categories} />
                   </div>
-
-                  {/* STEP 2: STORYTELLING (Hero and About follow) */}
+                  <CustomOrderSuite />
                   <Hero />
                   <AboutSection />
                   <VideoSection />
@@ -325,6 +319,17 @@ function App() {
                 </main>
               }
             />
+
+            <Route
+              path="/category/:id"
+              element={
+                <main className="pt-20">
+                  <ProductList products={products} categories={categories} />
+                  <Footer />
+                </main>
+              }
+            />
+
             <Route
               path="/product/:id"
               element={
@@ -334,6 +339,7 @@ function App() {
                 </>
               }
             />
+
             <Route path="/cart" element={<Cart />} />
             <Route
               path="/auth"

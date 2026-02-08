@@ -38,6 +38,17 @@ const Admin = () => {
           >
             <Lucide.Ticket size={18} /> Promo Codes
           </button>
+          {/* NEW SECTION: CUSTOM INQUIRIES */}
+          <button
+            onClick={() => setActiveTab("custom_inquiries")}
+            className={`w-full flex items-center gap-3 p-3 rounded transition-all ${
+              activeTab === "custom_inquiries"
+                ? "bg-amber-600 shadow-lg"
+                : "hover:bg-slate-800 text-slate-400"
+            }`}
+          >
+            <Lucide.Flame size={18} /> Custom Inquiries
+          </button>
         </nav>
       </aside>
 

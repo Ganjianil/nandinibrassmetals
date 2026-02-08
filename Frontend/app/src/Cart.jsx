@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useCart } from "./CartContext";
 import { useNavigate, Link } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react"; // Import QR Library
+import { QRCodeSVG } from "qrcode.react";
 import axios from "axios";
 import api from "./api";
 import * as Lucide from "lucide-react";
@@ -22,17 +22,38 @@ const Cart = () => {
   const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [utr, setUtr] = useState(""); // Transaction ID for UPI/Online
+  const [utr, setUtr] = useState("");
 
-  // CONFIGURATION: Replace with your details
   const UPI_ID = "9705140250-4@ybl";
   const MERCHANT_NAME = "Nandhini Brass Metals";
 
+  // --- FIXED IMAGE SOURCE LOGIC ---
   const getImgSrc = (path) => {
     if (!path) return "https://via.placeholder.com/150?text=Brass+Metals";
-    return path.startsWith("http")
-      ? path
-      : `https://nandinibrassmetals.vercel.app${path}`;
+    const API_BASE_URL = api.defaults.baseURL;
+
+    let cleanPath = path;
+
+    // 1. If it's a JSON string (like your database format), parse it
+    if (typeof path === "string" && path.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(path);
+        cleanPath = Array.isArray(parsed) ? parsed[0] : path;
+      } catch (e) {
+        cleanPath = path;
+      }
+    }
+    // 2. If it's already an array, take the first item
+    else if (Array.isArray(path)) {
+      cleanPath = path[0];
+    }
+
+    // 3. Final safety check: must be a string before calling .startsWith
+    if (typeof cleanPath !== "string") return "https://via.placeholder.com/150";
+
+    return cleanPath.startsWith("http")
+      ? cleanPath
+      : `${API_BASE_URL}${cleanPath}`;
   };
 
   useEffect(() => {
@@ -83,8 +104,6 @@ const Cart = () => {
   };
 
   const finalPrice = Math.round(totalPrice - discount);
-
-  // Generate UPI Link for QR Code
   const upiLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${finalPrice}&cu=INR`;
 
   const handleCheckout = async () => {
@@ -92,7 +111,6 @@ const Cart = () => {
     if (!user) return alert("Please Login First!");
     if (!phone || !address || !pincode) return alert("Fill shipping details!");
 
-    // Validation for Online Payments
     if (paymentMethod !== "Cash on Delivery" && !utr) {
       return alert(
         "Please enter the Transaction ID / UTR after completing payment!",
@@ -109,7 +127,7 @@ const Cart = () => {
         cartItems: cart,
         totalAmount: finalPrice,
         paymentMethod,
-        transactionId: utr, // Save the UTR for admin verification
+        transactionId: utr,
         couponCode: coupon,
       });
       alert("Order Placed Successfully! Verification in progress.");
@@ -159,7 +177,6 @@ const Cart = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Item List */}
           <div className="lg:col-span-7 space-y-6">
             {cart.map((item) => (
               <div
@@ -208,7 +225,6 @@ const Cart = () => {
             ))}
           </div>
 
-          {/* Checkout Panel */}
           <div className="lg:col-span-5">
             <div className="bg-slate-900 rounded-[3rem] p-8 md:p-10 text-white shadow-2xl sticky top-8">
               <h2 className="text-2xl font-black uppercase mb-8 flex items-center gap-3">
@@ -244,13 +260,10 @@ const Cart = () => {
                 />
               </div>
 
-              {/* PAYMENT MODES */}
               <div className="space-y-3 mb-8">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                   Payment Selection
                 </h3>
-
-                {/* COD */}
                 <div
                   onClick={() => setPaymentMethod("Cash on Delivery")}
                   className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${paymentMethod === "Cash on Delivery" ? "bg-amber-600/10 border-amber-600" : "bg-slate-800 border-transparent"}`}
@@ -272,8 +285,6 @@ const Cart = () => {
                     <Lucide.CheckCircle2 size={18} className="text-amber-500" />
                   )}
                 </div>
-
-                {/* UPI / Cards */}
                 <div
                   onClick={() => setPaymentMethod("UPI/Online")}
                   className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${paymentMethod === "UPI/Online" ? "bg-amber-600/10 border-amber-600" : "bg-slate-800 border-transparent"}`}
@@ -297,7 +308,6 @@ const Cart = () => {
                 </div>
               </div>
 
-              {/* AUTOMATIC QR GENERATOR */}
               {paymentMethod === "UPI/Online" && (
                 <div className="bg-white p-6 rounded-[2.5rem] mb-8 text-center animate-in fade-in zoom-in duration-300">
                   <p className="text-slate-900 font-black text-[10px] uppercase tracking-widest mb-4">

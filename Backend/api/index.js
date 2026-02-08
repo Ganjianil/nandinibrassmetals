@@ -127,8 +127,16 @@ const upload = multer({ storage });
 
 // --- FIXED URL HELPER ---
 const getFullUrl = (req, imagePath) => {
-    if (!imagePath) return null;
-    return imagePath; // Cloudinary returns full URL
+    if (!imagePath) return [];
+    
+    try {
+        // This converts '["url1", "url2"]' into a real Javascript Array
+        const parsed = JSON.parse(imagePath);
+        return Array.isArray(parsed) ? parsed : [parsed];
+    } catch (e) {
+        // Fallback: If it's already a plain string (legacy data), wrap it in an array
+        return [imagePath];
+    }
 };
 
 // Keep static for any legacy files left on the server
@@ -308,8 +316,12 @@ app.delete('/api/admin/categories/:id', verifyAdmin, async (req, res) => {
 });
 
 // ADD PRODUCT (Fixed to use '?' helper consistently)
-app.post("/api/admin/products", verifyAdmin, upload.single('image'), async (req, res) => {
-    const img = req.file ? req.file.path : null; 
+// ADD PRODUCT - FIXED FOR MULTIPLE IMAGES
+app.post("/api/admin/products", verifyAdmin, upload.array('images', 10), async (req, res) => {
+    // 1. Get ALL uploaded image paths from Cloudinary
+    // req.files is an array when using upload.array
+    const imageUrls = req.files ? req.files.map(file => file.path) : []; 
+
     const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
 
     try {
@@ -325,15 +337,16 @@ app.post("/api/admin/products", verifyAdmin, upload.single('image'), async (req,
                 description, 
                 long_description, 
                 category_id ? parseInt(category_id) : null, 
-                img
+                // 2. Convert the array to a JSON string so getFullUrl can parse it later
+                JSON.stringify(imageUrls) 
             ]
         );
-        res.json({ message: "Product added successfully!" });
+        res.json({ message: "Product added successfully with " + imageUrls.length + " images!" });
     } catch (err) {
+        console.error("DB Error:", err);
         res.status(500).json({ error: "Failed to add product", details: err.message });
     }
 });
-
 // DELETE PRODUCT
 app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
     const productId = req.params.id;
@@ -376,7 +389,72 @@ app.put("/api/admin/products/:id", verifyAdmin, upload.single('image'), async (r
         res.status(500).json({ error: "Update failed" }); 
     }
 });
+app.get('/api/admin/custom-inquiries', verifyAdmin, async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT * FROM custom_requests ORDER BY created_at DESC');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch inquiries" });
+    }
+});
+// DELETE a custom inquiry
+app.delete("/api/admin/custom-inquiries/:id", async (req, res) => {
+  const { id } = req.params;
 
+  try {
+    // Replace 'custom_inquiries' with your actual table name
+    const result = await db.query("DELETE FROM custom_inquiries WHERE id = ?", [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Inquiry not found" });
+    }
+
+    res.json({ message: "Inquiry deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting inquiry:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+// --- CUSTOM CONSULTATIONS ENDPOINT ---
+app.post('/api/custom-consultations', async (req, res) => {
+    const { metal, phone, height, weight, state, expectedDate, details } = req.body;
+
+    try {
+        // 1. Save to Database (Create this table first)
+        await db.query(
+            `INSERT INTO custom_requests 
+             (metal, phone, height, weight, location, delivery_date, details, status) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [metal, phone, height, weight, state, expectedDate, details, 'New']
+        );
+
+        // 2. Send Email Alert to You
+        const mailOptions = {
+            from: `"Nandini CUSTOM" <${process.env.EMAIL_USER}>`,
+            to: "ganjanilkumar1998@gmail.com", // Your email
+            subject: `🕉️ NEW TEMPLE WORK: ${metal} Idol Inquiry from ${state}`,
+            html: `
+                <div style="font-family: serif; border: 5px solid #b45309; padding: 30px;">
+                    <h1 style="color: #b45309;">New Custom Request</h1>
+                    <p><strong>Phone:</strong> ${phone}</p>
+                    <p><strong>Metal:</strong> ${metal}</p>
+                    <p><strong>Scale:</strong> ${height} ft / ${weight} kg</p>
+                    <p><strong>Location:</strong> ${state}</p>
+                    <p><strong>Deadline:</strong> ${expectedDate}</p>
+                    <hr/>
+                    <p><strong>Details:</strong> ${details}</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ success: true, message: "Request captured" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to process request" });
+    }
+});
 // PROMOS
 app.get('/api/admin/promos', verifyAdmin, async (req, res) => {
     try {

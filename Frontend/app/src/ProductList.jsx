@@ -1,361 +1,271 @@
-import React, { useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
+import api from "./api";
+const API_BASE_URL = api.defaults.baseURL;
 
-const API_BASE_URL = "https://nandinibrassmetals.vercel.app";
+// --- PREMIUM PRODUCT CARD ---
+const ProductCard = ({ p, API_BASE_URL, addToCart, isRow = false }) => {
+  const navigate = useNavigate();
+  const displayPrice = p.discount_price || p.price;
 
-// --- REDESIGNED BEAUTIFUL PRODUCT CARD ---
-const ProductCard = ({
-  p,
-  API_BASE_URL,
-  addToCart,
-  removeFromCart,
-  updateQuantity,
-  cartItem,
-}) => {
-  const isOutOfStock = p.stock <= 0;
-  const currentQty = cartItem ? cartItem.quantity : 0;
-
-  // --- LUXURY DISCOUNT LOGIC ---
-  const hasDiscount = p.discount_price && p.discount_price < p.price;
-  const displayPrice = hasDiscount ? p.discount_price : p.price;
-  const originalPrice = p.price;
-  const discountPercentage = hasDiscount
-    ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
-    : 0;
-
-  // Smart URL logic to prevent doubling
+  // FIXED: Handles both single strings (Category) and Arrays (Product)
   const getImgSrc = (path) => {
-    if (!path) return null;
-    return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
-  };
-
-  const handleAddOne = () => {
-    if (currentQty < p.stock) {
-      if (currentQty === 0) {
-        addToCart({ ...p, quantity: 1, price: displayPrice });
-      } else {
-        updateQuantity(p.id, currentQty + 1);
-      }
+    // 1. Handle Empty Array []
+    if (Array.isArray(path) && path.length === 0) {
+      return "https://placehold.co/400x500?text=No+Image+Uploaded";
     }
-  };
 
-  const handleRemoveOne = () => {
-    if (currentQty > 1) {
-      updateQuantity(p.id, currentQty - 1);
-    } else {
-      removeFromCart(p.id);
+    // 2. Extract path if it's an array with items
+    const cleanPath = Array.isArray(path) ? path[0] : path;
+
+    // 3. Final safety check
+    if (!cleanPath || typeof cleanPath !== "string") {
+      return "https://placehold.co/400x500?text=No+Image+Found";
     }
+
+    return cleanPath.startsWith("http")
+      ? cleanPath
+      : `${API_BASE_URL}${cleanPath}`;
   };
 
   return (
     <div
-      className={`group relative flex flex-col transition-all duration-500 hover:-translate-y-2 ${isOutOfStock ? "opacity-60" : ""}`}
+      className={`group flex flex-col items-center text-center transition-all duration-1000 
+      ${isRow ? "min-w-[180px] md:min-w-[280px]" : "w-full mx-auto max-w-[220px] md:max-w-[320px]"}`}
     >
-      {/* Premium Image Container */}
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[2.5rem] bg-[#f8f9fa] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] group-hover:shadow-[0_40px_80px_rgba(0,0,0,0.1)] transition-all duration-700">
-        {/* LUXURY BADGE: Glassmorphism Effect */}
-        {hasDiscount && !isOutOfStock && (
-          <div className="absolute top-5 left-5 z-30">
-            <div className="bg-white/80 backdrop-blur-md border border-white/20 px-4 py-2 rounded-2xl shadow-xl flex flex-col items-center">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter leading-none">
-                Save
-              </span>
-              <span className="text-sm font-black text-red-600 tracking-tighter">
-                {discountPercentage}%
-              </span>
-            </div>
-          </div>
-        )}
+      <div
+        onClick={() => navigate(`/product/${p.id}`)}
+        className="relative aspect-[4/5] w-full overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-[#f2f1ee] transition-all duration-700 cursor-pointer border border-slate-200/40 shadow-sm"
+      >
+        <div className="absolute inset-0 z-10 bg-[radial-gradient(circle,transparent_60%,rgba(0,0,0,0.02)_100%)] pointer-events-none" />
 
-        <Link
-          to={isOutOfStock ? "#" : `/product/${p.id}`}
-          className={`block h-full w-full ${isOutOfStock ? "cursor-default" : "cursor-pointer"}`}
+        <img
+          src={getImgSrc(p.image)}
+          className="h-full w-full object-cover transition-all duration-[2s] ease-out group-hover:scale-110"
+          alt={p.name}
+        />
+
+        <div className="absolute top-3 right-3 bg-white/80 backdrop-blur-md px-2.5 py-1 rounded-full z-20 shadow-sm border border-white/20">
+          <span className="text-[9px] md:text-[11px] font-black text-[#0c1322]">
+            ₹{displayPrice}
+          </span>
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            addToCart({ ...p, quantity: 1, price: displayPrice });
+          }}
+          className="absolute bottom-3 right-3 bg-[#0c1322] text-white p-2.5 rounded-full z-30 shadow-lg hover:bg-amber-600 transition-all transform hover:scale-110 active:scale-95"
         >
-          {p.image ? (
-            <img
-              src={getImgSrc(p.image)}
-              className={`h-full w-full object-cover transition-all duration-[1.5s] ease-out ${!isOutOfStock && "group-hover:scale-110 group-hover:rotate-1"}`}
-              alt={p.name}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <Lucide.Package size={40} className="text-slate-200" />
-            </div>
-          )}
-        </Link>
-
-        {/* Sold Out Overlay */}
-        {isOutOfStock && (
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-10">
-            <div className="bg-white/10 border border-white/20 px-8 py-3 rounded-full">
-              <span className="text-white font-black uppercase tracking-[0.3em] text-[10px]">
-                Vault Closed
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Floating Action Button (Desktop Only) */}
-        {!isOutOfStock && (
-          <div className="absolute bottom-8 left-0 right-0 px-6 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-20 hidden md:block">
-            {currentQty === 0 ? (
-              <button
-                onClick={handleAddOne}
-                className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 shadow-2xl hover:bg-amber-600 transition-colors"
-              >
-                <Lucide.ShoppingBag size={16} />
-                Add to Collection
-              </button>
-            ) : (
-              <div className="flex items-center justify-between bg-white rounded-2xl p-2 shadow-2xl border border-slate-100">
-                <button
-                  onClick={handleRemoveOne}
-                  className="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-50 rounded-xl transition-all"
-                >
-                  {currentQty === 1 ? (
-                    <Lucide.Trash2 size={16} />
-                  ) : (
-                    <Lucide.Minus size={16} />
-                  )}
-                </button>
-                <span className="font-black text-slate-900 text-lg">
-                  {currentQty}
-                </span>
-                <button
-                  onClick={handleAddOne}
-                  className="w-10 h-10 flex items-center justify-center text-amber-600 hover:bg-slate-50 rounded-xl transition-all"
-                >
-                  <Lucide.Plus size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          <Lucide.Plus size={18} strokeWidth={3} />
+        </button>
       </div>
 
-      {/* Elegant Product Info */}
-      <div className="mt-8 text-center px-2">
-        <h3 className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] mb-2">
-          Exclusive Brass
-        </h3>
-        <h2 className="font-black text-xl uppercase text-slate-900 tracking-tighter leading-none mb-3 group-hover:text-amber-600 transition-colors">
+      <div className="mt-4 w-full px-2">
+        <h2 className="font-serif text-[11px] md:text-sm lg:text-base text-[#0c1322] tracking-tight uppercase line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
           {p.name}
         </h2>
-
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3">
-            {hasDiscount && (
-              <span className="text-slate-300 line-through text-sm font-bold decoration-slate-300">
-                ₹{originalPrice}
-              </span>
-            )}
-            <span className="text-2xl font-black text-slate-900 tracking-tighter">
-              ₹{displayPrice}
-            </span>
-          </div>
-
-          {/* Minimalist Mobile Controls */}
-          {!isOutOfStock && (
-            <div className="w-full md:hidden pt-2">
-              {currentQty === 0 ? (
-                <button
-                  onClick={handleAddOne}
-                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
-                >
-                  Quick Add
-                </button>
-              ) : (
-                <div className="flex items-center justify-between bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
-                  <button
-                    onClick={handleRemoveOne}
-                    className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400"
-                  >
-                    {currentQty === 1 ? (
-                      <Lucide.Trash2 size={16} />
-                    ) : (
-                      <Lucide.Minus size={16} />
-                    )}
-                  </button>
-                  <span className="font-black text-slate-900">
-                    {currentQty}
-                  </span>
-                  <button
-                    onClick={handleAddOne}
-                    className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center text-amber-600"
-                  >
-                    <Lucide.Plus size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+        <div className="flex justify-center mt-1.5">
+          <div className="h-[1px] w-4 bg-slate-200 group-hover:w-8 group-hover:bg-amber-500 transition-all duration-700"></div>
         </div>
       </div>
     </div>
   );
 };
 
-// --- MAIN PRODUCT LIST COMPONENT ---
-const ProductList = ({ products = [], categories = [] }) => {
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const productsPerPage = 8;
+// --- AUTO-SCROLLING HORIZONTAL ROW ---
+const ProductRow = ({ category, products, API_BASE_URL, addToCart }) => {
+  const scrollRef = useRef(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const catProducts = products.filter((p) => p.category_id === category.id);
 
-  const { addToCart, removeFromCart, updateQuantity, cart } = useCart();
-  const productSectionRef = useRef(null);
+  useEffect(() => {
+    if (isPaused || !scrollRef.current) return;
+    const interval = setInterval(() => {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      if (scrollLeft + clientWidth >= scrollWidth - 1) {
+        scrollRef.current.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        scrollRef.current.scrollBy({ left: 1, behavior: "auto" });
+      }
+    }, 40);
+    return () => clearInterval(interval);
+  }, [isPaused]);
 
+  if (catProducts.length === 0) return null;
+
+  return (
+    <div
+      className="py-12 md:py-20 border-t border-slate-100"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 px-2 gap-4">
+        <div className="space-y-1">
+          <span className="text-amber-700/60 font-black text-[9px] uppercase tracking-[0.5em] block">
+            Exclusive Collection
+          </span>
+          <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif text-[#0c1322] uppercase tracking-tighter italic opacity-90">
+            {category.name}
+          </h2>
+        </div>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="flex gap-4 md:gap-8 overflow-x-auto no-scrollbar pb-6 px-2 scroll-smooth"
+      >
+        {catProducts.map((p) => (
+          <ProductCard
+            key={p.id}
+            p={p}
+            API_BASE_URL={API_BASE_URL}
+            addToCart={addToCart}
+            isRow={true}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- CATEGORY PANEL ---
+const CategoryPanel = ({ cat, isFull, API_BASE_URL }) => {
+  const navigate = useNavigate();
+
+  // FIXED: Handles single strings (Category) effectively
   const getImgSrc = (path) => {
-    if (!path) return null;
-    return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+    const cleanPath = Array.isArray(path) ? path[0] : path;
+    if (!cleanPath || typeof cleanPath !== "string") return "/placeholder.png";
+    return cleanPath.startsWith("http")
+      ? cleanPath
+      : `${API_BASE_URL}${cleanPath}`;
   };
 
+  return (
+    <div
+      onClick={() => navigate(`/category/${cat.id}`)}
+      className={`relative overflow-hidden group cursor-pointer rounded-[1.5rem] md:rounded-[3rem] transition-all duration-1000 shadow-md 
+        ${isFull ? "h-[300px] md:h-[600px] lg:h-[700px]" : "h-[200px] md:h-[400px] lg:h-[450px]"}`}
+    >
+      <img
+        src={getImgSrc(cat.image)}
+        className="w-full h-full object-cover transition-transform duration-[4s] group-hover:scale-105 brightness-[0.85] md:group-hover:brightness-95"
+        alt={cat.name}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+      <div className="absolute inset-0 flex flex-col items-center justify-end pb-8 md:pb-16 text-center px-4">
+        <h3
+          className={`text-white font-serif uppercase tracking-tighter leading-none mb-3 ${isFull ? "text-3xl md:text-7xl" : "text-xl md:text-4xl"}`}
+        >
+          {cat.name}
+        </h3>
+        <span className="text-white/60 text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em]">
+          Explore Collection
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const ProductList = ({ products = [], categories = [] }) => {
+  const { addToCart } = useCart();
+  const { id } = useParams();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const bannerCategories = categories.slice(0, 6);
+  const rowCategories = categories.slice(6);
+
   const filteredProducts = products.filter((p) => {
-    const matchesCategory = selectedCategory
-      ? p.category_id === selectedCategory
-      : true;
+    const matchesCategory = id ? p.category_id === parseInt(id) : true;
     const matchesSearch = p.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = filteredProducts.slice(
-    indexOfFirstProduct,
-    indexOfLastProduct,
-  );
-  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
-
-  const paginate = (pageNumber) => {
-    setCurrentPage(pageNumber);
-    window.scrollTo({
-      top: productSectionRef.current?.offsetTop - 100,
-      behavior: "smooth",
-    });
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-10 py-20 bg-white">
-      {/* CATEGORY SECTION */}
-      <section className="mb-24">
-        <div className="text-center mb-12">
-          <span className="text-amber-600 font-black text-xs uppercase tracking-[0.4em] block mb-3">
-            Divine Curation
-          </span>
-          <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-slate-900">
-            Shop by Category
-          </h2>
-        </div>
-
-        <div className="flex overflow-x-auto pb-6 md:pb-0 md:grid md:grid-cols-5 gap-6 snap-x no-scrollbar">
-          <div
-            onClick={() => setSelectedCategory(null)}
-            className={`min-w-[160px] md:min-w-0 cursor-pointer group relative overflow-hidden rounded-[2.5rem] h-52 transition-all snap-center flex items-center justify-center bg-slate-900 ${
-              !selectedCategory ? "ring-4 ring-amber-500 ring-offset-4" : ""
-            }`}
-          >
-            <div className="p-6 text-white font-black text-[10px] uppercase tracking-widest">
-              Show All
+    <div className="bg-[#faf9f6] min-h-screen">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-10 lg:px-20 py-8 space-y-16 md:space-y-32">
+        {!id && (
+          <div className="space-y-6 md:space-y-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-10">
+              {bannerCategories.slice(0, 2).map((cat) => (
+                <CategoryPanel
+                  key={cat.id}
+                  cat={cat}
+                  isFull={true}
+                  API_BASE_URL={API_BASE_URL}
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+              {bannerCategories.slice(2, 6).map((cat) => (
+                <CategoryPanel
+                  key={cat.id}
+                  cat={cat}
+                  isFull={false}
+                  API_BASE_URL={API_BASE_URL}
+                />
+              ))}
             </div>
           </div>
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`min-w-[160px] md:min-w-0 cursor-pointer group relative overflow-hidden rounded-[2.5rem] h-52 transition-all snap-center ${
-                selectedCategory === cat.id
-                  ? "ring-4 ring-amber-500 ring-offset-4"
-                  : ""
-              }`}
-            >
-              {cat.image && (
-                <img
-                  src={getImgSrc(cat.image)}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  alt={cat.name}
-                />
-              )}
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-6 text-white font-black text-[10px] uppercase tracking-widest text-center">
-                {cat.name}
-              </div>
+        )}
+
+        <section>
+          <div className="flex flex-col items-center mb-12 md:mb-24 text-center">
+            <span className="text-amber-800/40 font-black text-[10px] uppercase tracking-[0.8em] mb-4">
+              Discovery
+            </span>
+            <h2 className="text-4xl md:text-7xl lg:text-9xl font-serif text-[#0c1322] uppercase tracking-tighter leading-none mb-10 opacity-90">
+              {id
+                ? categories.find((c) => c.id === parseInt(id))?.name
+                : "The Gallery"}
+            </h2>
+            <div className="relative w-full max-w-xs border-b border-slate-300">
+              <Lucide.Search
+                className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400"
+                size={16}
+              />
+              <input
+                type="text"
+                placeholder="SEARCH..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent border-none py-3 pl-8 text-[10px] font-black tracking-[0.3em] focus:ring-0"
+              />
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
 
-      {/* SEARCH HEADER */}
-      <div
-        ref={productSectionRef}
-        className="mb-16 flex flex-col lg:flex-row items-center justify-between gap-10 border-b pb-12"
-      >
-        <h2 className="text-5xl font-black uppercase tracking-tighter text-slate-900">
-          {selectedCategory
-            ? categories.find((c) => c.id === selectedCategory)?.name
-            : "Catalog"}
-        </h2>
-        <div className="relative w-full max-w-md">
-          <Lucide.Search
-            className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400"
-            size={20}
-          />
-          <input
-            type="text"
-            placeholder="Search our collection..."
-            className="w-full bg-slate-50 py-5 pl-14 pr-6 rounded-[2rem] outline-none font-bold focus:ring-2 ring-amber-500/20"
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-4 md:gap-x-12 gap-y-10 md:gap-y-24">
+            {filteredProducts.map((p) => (
+              <ProductCard
+                key={p.id}
+                p={p}
+                API_BASE_URL={API_BASE_URL}
+                addToCart={addToCart}
+              />
+            ))}
+          </div>
+        </section>
+
+        {!id && !searchQuery && (
+          <div className="pt-10">
+            {rowCategories.map((cat) => (
+              <ProductRow
+                key={cat.id}
+                category={cat}
+                products={products}
+                API_BASE_URL={API_BASE_URL}
+                addToCart={addToCart}
+              />
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* PRODUCT GRID */}
-      {currentProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-20">
-          {currentProducts.map((p) => (
-            <ProductCard
-              key={p.id}
-              p={p}
-              API_BASE_URL={API_BASE_URL}
-              addToCart={addToCart}
-              removeFromCart={removeFromCart}
-              updateQuantity={updateQuantity}
-              cartItem={cart?.find((item) => item.id === p.id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="py-20 text-center bg-slate-50 rounded-[4rem]">
-          <p className="text-slate-400 font-black uppercase tracking-widest">
-            No items found.
-          </p>
-        </div>
-      )}
-
-      {/* PAGINATION */}
-      {totalPages > 1 && (
-        <div className="mt-24 flex justify-center items-center gap-3">
-          <button
-            onClick={() => paginate(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="w-14 h-14 rounded-full border-2 border-slate-100 flex items-center justify-center disabled:opacity-20 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
-          >
-            <Lucide.ChevronLeft size={24} />
-          </button>
-          <span className="font-black px-6 text-slate-900 uppercase text-xs tracking-widest">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => paginate(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="w-14 h-14 rounded-full border-2 border-slate-100 flex items-center justify-center disabled:opacity-20 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
-          >
-            <Lucide.ChevronRight size={24} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };

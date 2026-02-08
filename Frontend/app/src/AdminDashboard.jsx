@@ -2,13 +2,23 @@ import { useState, useEffect } from "react";
 import api from "./api";
 import * as Lucide from "lucide-react";
 
-const BASE_URL = "https://nandinibrassmetals.vercel.app"; // ← centralize this
+
+const BASE_URL = api.defaults.baseURL; // ← centralize this
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return "https://via.placeholder.com/150";
-  // If the path already starts with http (Cloudinary), use it directly
-  if (imagePath.startsWith("http")) return imagePath;
-  // Otherwise, it's an old local path, add the BASE_URL
-  return `${BASE_URL}${imagePath}`;
+  // 1. If it's null or undefined, return placeholder
+  if (!imagePath) return "https://placehold.co/150";
+
+  // 2. If it's an ARRAY (common when multiple images are uploaded), take the first one
+  const path = Array.isArray(imagePath) ? imagePath[0] : imagePath;
+
+  // 3. Safety check: Ensure 'path' is now a string before calling startsWith
+  if (typeof path !== "string") return "https://placehold.co/150";
+
+  // 4. Check for Cloudinary/External URL
+  if (path.startsWith("http")) return path;
+
+  // 5. Local path
+  return `${BASE_URL}${path}`;
 };
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("orders");
@@ -19,7 +29,7 @@ const Admin = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
   const [selectedOrderItems, setSelectedOrderItems] = useState(null);
-
+const [inquiries, setInquiries] = useState([]);
   const [isEditing, setIsEditing] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -34,8 +44,7 @@ const Admin = () => {
     long_description: "",
     category_id: "",
   });
-  const [imageFile, setImageFile] = useState(null);
-
+const [imageFiles, setImageFiles] = useState([]);
   const [newPromo, setNewPromo] = useState({
     code: "",
     discount: "",
@@ -114,55 +123,57 @@ const Admin = () => {
     }
   };
 
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
+ const handleAddProduct = async (e) => {
+   e.preventDefault();
 
-    const data = new FormData();
+   const data = new FormData();
 
-    data.append("name", newProduct.name.trim());
-    data.append("price", parseFloat(newProduct.price) || 0);
+   // Required fields
+   data.append("name", newProduct.name.trim());
+   data.append("price", Number(newProduct.price) || 0);
+   data.append("stock", Number(newProduct.stock) || 0);
+   data.append("description", newProduct.description.trim());
+   data.append("long_description", newProduct.long_description.trim());
 
-    const discountValue =
-      newProduct.discount_price && !isNaN(parseFloat(newProduct.discount_price))
-        ? parseFloat(newProduct.discount_price)
-        : 0;
-    data.append("discount_price", discountValue);
+   // Optional fields
+   if (newProduct.discount_price !== "") {
+     data.append("discount_price", Number(newProduct.discount_price));
+   }
 
-    data.append("stock", parseInt(newProduct.stock) || 0);
-    data.append("description", newProduct.description.trim());
-    data.append("long_description", newProduct.long_description.trim());
-    data.append("category_id", parseInt(newProduct.category_id) || null);
+   if (newProduct.category_id) {
+     data.append("category_id", Number(newProduct.category_id));
+   }
 
-    if (imageFile) {
-      data.append("image", imageFile);
-    }
+   // Multiple images (IMPORTANT: same key every time)
+   if (imageFiles?.length) {
+     imageFiles.forEach((file) => {
+       data.append("images", file);
+     });
+   }
 
-    // Debug log – keep for testing
-    console.log("=== SENDING PRODUCT TO BACKEND ===");
-    console.log("discount_price (parsed):", discountValue);
-    for (let [key, value] of data.entries()) {
-      console.log(`FormData → ${key}:`, value);
-    }
+   try {
+     await api.post("/api/admin/products", data);
+     alert("Product added successfully!");
 
-    try {
-      await api.post("/api/admin/products", data);
-      alert("Artifact Published Successfully!");
-      setNewProduct({
-        name: "",
-        price: "",
-        discount_price: "",
-        stock: "",
-        description: "",
-        long_description: "",
-        category_id: "",
-      });
-      setImageFile(null);
-      fetchData();
-    } catch (err) {
-      console.error("Upload Error:", err);
-      alert("Upload Failed. Please verify all fields.");
-    }
-  };
+     setNewProduct({
+       name: "",
+       price: "",
+       discount_price: "",
+       stock: "",
+       description: "",
+       long_description: "",
+       category_id: "",
+     });
+
+     setImageFiles([]);
+     fetchData();
+   } catch (err) {
+     console.error(err);
+     alert("Upload failed");
+   }
+ };
+
+
 
   const deleteProduct = async (id) => {
     if (window.confirm("Delete this product?")) {
@@ -207,6 +218,31 @@ const Admin = () => {
       }
     }
   };
+  useEffect(() => {
+    if (activeTab === "custom_inquiries") {
+      fetchInquiries();
+    }
+  }, [activeTab]);
+
+  const fetchInquiries = async () => {
+    try {
+      const { data } = await api.get("/api/admin/custom-inquiries");
+      setInquiries(data);
+    } catch (err) {
+      console.error("Error fetching inquiries", err);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to remove this inquiry?")) {
+      try {
+        await api.delete(`/api/admin/custom-inquiries/${id}`);
+        fetchInquiries(); // Refresh list
+      } catch (err) {
+        alert("Failed to delete inquiry");
+      }
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -244,6 +280,17 @@ const Admin = () => {
           >
             <Lucide.Ticket size={18} /> Promotions
           </button>
+          {/* ADD THIS BUTTON TO YOUR SIDEBAR NAV */}
+          <button
+            onClick={() => setActiveTab("custom_inquiries")}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+              activeTab === "custom_inquiries"
+                ? "bg-amber-600 shadow-lg"
+                : "hover:bg-slate-800 text-slate-400"
+            }`}
+          >
+            <Lucide.Flame size={18} /> Custom Inquiries
+          </button>
         </nav>
       </div>
 
@@ -273,12 +320,16 @@ const Admin = () => {
                   >
                     <div className="flex items-center gap-6 flex-1 w-full">
                       <img
+                        // Ensure we pass the image string/array through our safety helper
                         src={getImageUrl(firstItem.image)}
                         onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/150";
+                          // Fallback if the URL returns a 404
+                          e.target.onerror = null; // Prevent infinite loops if fallback fails
+                          e.target.src =
+                            "https://placehold.co/150?text=No+Image";
                         }}
-                        className="w-28 h-28 object-cover rounded-3xl border shadow-sm"
-                        alt=""
+                        className="w-28 h-28 object-cover rounded-3xl border shadow-sm bg-slate-50"
+                        alt={firstItem.name || "Product"}
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -392,7 +443,140 @@ const Admin = () => {
             </div>
           </div>
         )}
+        {/* 1. ORDERS SECTION (Existing) */}
+        {activeTab === "orders" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-2xl font-black text-slate-800 mb-6 uppercase">
+              General Orders
+            </h2>
+            {/* Your Order List Component goes here */}
+          </div>
+        )}
 
+        {/* 2. CUSTOM INQUIRIES SECTION */}
+        {activeTab === "custom_inquiries" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-serif italic text-slate-900 tracking-tight">
+                  Sacred Temple Inquiries
+                </h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-1">
+                  Bespoke Idols & Architecture Requests
+                </p>
+              </div>
+              <button
+                onClick={fetchInquiries}
+                className="flex items-center gap-2 px-5 py-2.5 bg-amber-50 text-amber-700 rounded-xl font-bold text-xs hover:bg-amber-100 transition-all border border-amber-100 shadow-sm shadow-amber-100/50"
+              >
+                <Lucide.RefreshCw size={14} /> Refresh Data
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-[1.5rem] border border-slate-100 shadow-inner bg-slate-50/30">
+              <table className="w-full text-left border-collapse min-w-[1000px]">
+                <thead className="bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <tr>
+                    <th className="p-5 border-b border-slate-800">
+                      Date Received
+                    </th>
+                    <th className="p-5 border-b border-slate-800">
+                      Metal Type
+                    </th>
+                    <th className="p-5 border-b border-slate-800">
+                      Client Contact
+                    </th>
+                    <th className="p-5 border-b border-slate-800">Location</th>
+                    <th className="p-5 border-b border-slate-800">
+                      Specifications
+                    </th>
+                    <th className="p-5 border-b border-slate-800">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {inquiries.length > 0 ? (
+                    inquiries.map((iq) => (
+                      <tr
+                        key={iq.id}
+                        className="hover:bg-amber-50/30 transition-colors group"
+                      >
+                        <td className="p-5 text-xs font-medium text-slate-400">
+                          {new Date(iq.created_at).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="p-5">
+                          <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-black uppercase rounded-full border border-amber-200">
+                            {iq.metal}
+                          </span>
+                        </td>
+                        <td className="p-5">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-800 underline decoration-slate-200 underline-offset-4 cursor-pointer">
+                              {iq.phone}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <div className="flex items-center gap-2 text-slate-600 text-sm italic">
+                            <Lucide.MapPin
+                              size={14}
+                              className="text-slate-300"
+                            />{" "}
+                            {iq.location}
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                              Height / Weight
+                            </span>
+                            <span className="text-xs font-bold text-slate-700">
+                              {iq.height}ft • {iq.weight}kg
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                alert(`DETAILED REQUIREMENTS:\n\n${iq.details}`)
+                              }
+                              className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                              title="View Requirements"
+                            >
+                              <Lucide.FileText size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(iq.id)}
+                              className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              title="Delete Record"
+                            >
+                              <Lucide.Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="p-20 text-center">
+                        <div className="flex flex-col items-center gap-4 text-slate-300">
+                          <Lucide.Inbox size={48} strokeWidth={1} />
+                          <span className="text-xs font-black uppercase tracking-widest">
+                            No inquiries yet
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         {/* INVENTORY TAB */}
         {activeTab === "inventory" && (
           <div className="animate-fadeIn">
@@ -743,7 +927,9 @@ const Admin = () => {
                   </p>
                   <input
                     type="file"
-                    onChange={(e) => setImageFile(e.target.files[0])}
+                    multiple // <--- CRITICAL: allows multiple selection
+                    accept="image/*" // (Optional) Helps mobile users
+                    onChange={(e) => setImageFiles(Array.from(e.target.files))} // Convert FileList to Array
                     required
                     className="text-xs w-full"
                   />
@@ -759,8 +945,129 @@ const Admin = () => {
 
         {/* PROMOTIONS TAB */}
         {activeTab === "promo" && (
-          <div className="animate-fadeIn space-y-10">
-            {/* ... your existing promo code form and table ... */}
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
+            {/* 1. HEADER */}
+            <div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900">
+                Promotional Codes
+              </h2>
+              <p className="text-slate-500 font-medium">
+                Create and manage discount coupons for your customers.
+              </p>
+            </div>
+
+            {/* 2. CREATE NEW PROMO FORM */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <form
+                onSubmit={handleAddPromo}
+                className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end"
+              >
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">
+                    Code Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. FESTIVE20"
+                    className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 font-bold uppercase"
+                    value={newPromo.code}
+                    onChange={(e) =>
+                      setNewPromo({ ...newPromo, code: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">
+                    Discount %
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="10"
+                    className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 font-bold"
+                    value={newPromo.discount}
+                    onChange={(e) =>
+                      setNewPromo({ ...newPromo, discount: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 font-bold"
+                    value={newPromo.expiry_date}
+                    onChange={(e) =>
+                      setNewPromo({ ...newPromo, expiry_date: e.target.value })
+                    }
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white p-4 rounded-2xl font-black uppercase text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
+                >
+                  <Lucide.PlusCircle size={18} /> Create Promo
+                </button>
+              </form>
+            </div>
+
+            {/* 3. PROMOS TABLE */}
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <tr>
+                    <th className="p-6">Code</th>
+                    <th className="p-6">Discount</th>
+                    <th className="p-6">Expiry</th>
+                    <th className="p-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {promos.length > 0 ? (
+                    promos.map((promo) => (
+                      <tr
+                        key={promo.id}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
+                        <td className="p-6">
+                          <span className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl font-black text-sm">
+                            {promo.code}
+                          </span>
+                        </td>
+                       <td className="p-6 font-bold text-slate-700">
+  {/* Change 'discount' to 'discount_percent' */}
+  {promo.discount_percent}% OFF
+</td>
+                        
+                        <td className="p-6 text-sm font-medium text-slate-400">
+                          {new Date(promo.expiry_date).toLocaleDateString()}
+                        </td>
+                        <td className="p-6 text-right">
+                          <button
+                            onClick={() => deletePromo(promo.id)}
+                            className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                          >
+                            <Lucide.Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="4"
+                        className="p-10 text-center text-slate-300 font-bold uppercase text-xs tracking-widest"
+                      >
+                        No active promo codes found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

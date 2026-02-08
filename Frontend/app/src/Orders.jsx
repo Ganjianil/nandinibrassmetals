@@ -7,13 +7,39 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const API_BASE_URL = "https://nandinibrassmetals.vercel.app";
+  const API_BASE_URL = api.defaults.baseURL;
 
-  // HELPER: Resolve Image URL (Handles Cloudinary vs Legacy Render paths)
+  // --- FIXED: HELPER TO RESOLVE IMAGE URL SAFELY ---
   const getImageUrl = (path) => {
     if (!path) return "https://via.placeholder.com/150?text=No+Image";
-    if (path.startsWith("http")) return path; // Already a Cloudinary URL
-    return `${API_BASE_URL}${path}`; // Legacy relative path
+
+    let finalPath = path;
+
+    // 1. Handle if path is a JSON string (e.g. '["url.jpg"]')
+    if (
+      typeof path === "string" &&
+      (path.startsWith("[") || path.startsWith("{"))
+    ) {
+      try {
+        const parsed = JSON.parse(path);
+        finalPath = Array.isArray(parsed) ? parsed[0] : parsed;
+      } catch (e) {
+        finalPath = path;
+      }
+    }
+    // 2. Handle if path is already an Array
+    else if (Array.isArray(path)) {
+      finalPath = path[0];
+    }
+
+    // 3. Final safety check: ensure we are working with a string now
+    if (typeof finalPath !== "string") {
+      return "https://via.placeholder.com/150?text=No+Image";
+    }
+
+    // 4. Check for absolute vs relative URL
+    if (finalPath.startsWith("http")) return finalPath;
+    return `${API_BASE_URL}${finalPath}`;
   };
 
   // Safe JSON Parsing Helper
@@ -196,7 +222,6 @@ const Orders = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                  {/* Items list */}
                   <div className="lg:col-span-7 space-y-4">
                     {items.map((item, idx) => (
                       <div
@@ -231,7 +256,6 @@ const Orders = () => {
                     ))}
                   </div>
 
-                  {/* Order Summary Side */}
                   <div className="lg:col-span-5 flex flex-col justify-between">
                     <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
                       <div className="relative z-10">
