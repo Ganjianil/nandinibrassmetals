@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
 import api from "./api";
+
 const API_BASE_URL = api.defaults.baseURL;
 
 // --- PREMIUM PRODUCT CARD ---
@@ -10,21 +11,14 @@ const ProductCard = ({ p, API_BASE_URL, addToCart, isRow = false }) => {
   const navigate = useNavigate();
   const displayPrice = p.discount_price || p.price;
 
-  // FIXED: Handles both single strings (Category) and Arrays (Product)
   const getImgSrc = (path) => {
-    // 1. Handle Empty Array []
     if (Array.isArray(path) && path.length === 0) {
       return "https://placehold.co/400x500?text=No+Image+Uploaded";
     }
-
-    // 2. Extract path if it's an array with items
     const cleanPath = Array.isArray(path) ? path[0] : path;
-
-    // 3. Final safety check
     if (!cleanPath || typeof cleanPath !== "string") {
       return "https://placehold.co/400x500?text=No+Image+Found";
     }
-
     return cleanPath.startsWith("http")
       ? cleanPath
       : `${API_BASE_URL}${cleanPath}`;
@@ -53,14 +47,21 @@ const ProductCard = ({ p, API_BASE_URL, addToCart, isRow = false }) => {
           </span>
         </div>
 
+        {/* PREMIUM SHOPPING BAG BUTTON */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             addToCart({ ...p, quantity: 1, price: displayPrice });
           }}
-          className="absolute bottom-3 right-3 bg-[#0c1322] text-white p-2.5 rounded-full z-30 shadow-lg hover:bg-amber-600 transition-all transform hover:scale-110 active:scale-95"
+          className="absolute bottom-4 right-4 bg-[#0c1322] text-white p-3 rounded-full z-30 shadow-xl 
+                     hover:bg-amber-600 hover:shadow-amber-500/40 transition-all duration-500 
+                     transform hover:scale-110 active:scale-95 flex items-center justify-center"
         >
-          <Lucide.Plus size={18} strokeWidth={3} />
+          <Lucide.ShoppingBag
+            size={18}
+            strokeWidth={2.5}
+            className="drop-shadow-sm"
+          />
         </button>
       </div>
 
@@ -76,24 +77,40 @@ const ProductCard = ({ p, API_BASE_URL, addToCart, isRow = false }) => {
   );
 };
 
-// --- AUTO-SCROLLING HORIZONTAL ROW ---
+// --- AUTO-SCROLLING HORIZONTAL ROW (PING-PONG / BOUNCE EFFECT) ---
 const ProductRow = ({ category, products, API_BASE_URL, addToCart }) => {
   const scrollRef = useRef(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [direction, setDirection] = useState(1); // 1 = Right, -1 = Left
   const catProducts = products.filter((p) => p.category_id === category.id);
 
   useEffect(() => {
     if (isPaused || !scrollRef.current) return;
+
+    const scrollContainer = scrollRef.current;
+
     const interval = setInterval(() => {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      if (scrollLeft + clientWidth >= scrollWidth - 1) {
-        scrollRef.current.scrollTo({ left: 0, behavior: "smooth" });
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+
+      if (direction === 1) {
+        // Moving Right
+        if (scrollLeft + clientWidth >= scrollWidth - 2) {
+          setDirection(-1); // Hit end, reverse to Left
+        } else {
+          scrollContainer.scrollLeft += 1;
+        }
       } else {
-        scrollRef.current.scrollBy({ left: 1, behavior: "auto" });
+        // Moving Left
+        if (scrollLeft <= 0) {
+          setDirection(1); // Hit start, reverse to Right
+        } else {
+          scrollContainer.scrollLeft -= 1;
+        }
       }
-    }, 40);
+    }, 30);
+
     return () => clearInterval(interval);
-  }, [isPaused]);
+  }, [isPaused, direction]);
 
   if (catProducts.length === 0) return null;
 
@@ -102,6 +119,8 @@ const ProductRow = ({ category, products, API_BASE_URL, addToCart }) => {
       className="py-12 md:py-20 border-t border-slate-100"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+      onTouchEnd={() => setIsPaused(false)}
     >
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 px-2 gap-4">
         <div className="space-y-1">
@@ -116,7 +135,8 @@ const ProductRow = ({ category, products, API_BASE_URL, addToCart }) => {
 
       <div
         ref={scrollRef}
-        className="flex gap-4 md:gap-8 overflow-x-auto no-scrollbar pb-6 px-2 scroll-smooth"
+        className="flex gap-4 md:gap-8 overflow-x-auto no-scrollbar pb-6 px-2"
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         {catProducts.map((p) => (
           <ProductCard
@@ -136,7 +156,6 @@ const ProductRow = ({ category, products, API_BASE_URL, addToCart }) => {
 const CategoryPanel = ({ cat, isFull, API_BASE_URL }) => {
   const navigate = useNavigate();
 
-  // FIXED: Handles single strings (Category) effectively
   const getImgSrc = (path) => {
     const cleanPath = Array.isArray(path) ? path[0] : path;
     if (!cleanPath || typeof cleanPath !== "string") return "/placeholder.png";

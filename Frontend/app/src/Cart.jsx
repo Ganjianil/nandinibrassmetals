@@ -17,6 +17,7 @@ const Cart = () => {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Payment & Promo States
   const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
@@ -106,38 +107,61 @@ const Cart = () => {
   const finalPrice = Math.round(totalPrice - discount);
   const upiLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${finalPrice}&cu=INR`;
 
-  const handleCheckout = async () => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user) return alert("Please Login First!");
-    if (!phone || !address || !pincode) return alert("Fill shipping details!");
+ const handleCheckout = async () => {
+   // 1. Get user from storage
+   const userString = localStorage.getItem("user");
+   const user = userString ? JSON.parse(userString) : null;
 
-    if (paymentMethod !== "Cash on Delivery" && !utr) {
-      return alert(
-        "Please enter the Transaction ID / UTR after completing payment!",
-      );
-    }
+   if (!user) {
+     alert("Please Login First!");
+     navigate("/login"); // Better UX to send them to login
+     return;
+   }
 
-    try {
-      await api.post("/api/orders", {
-        userId: user.id,
-        username: user.username || user.name || "Customer",
-        email: user.email,
-        phone,
-        address: `${address}, ${city}, ${state} - ${pincode}`,
-        cartItems: cart,
-        totalAmount: finalPrice,
-        paymentMethod,
-        transactionId: utr,
-        couponCode: coupon,
-      });
-      alert("Order Placed Successfully! Verification in progress.");
-      clearCart();
-      localStorage.removeItem("nandhini_cart_cache");
-      navigate("/");
-    } catch (err) {
-      alert("Order Failed");
-    }
-  };
+   // 2. Validation
+   if (!phone || !address || !pincode) {
+     return alert("Please fill in all shipping details!");
+   }
+
+   if (paymentMethod !== "Cash on Delivery" && !utr) {
+     return alert(
+       "Please enter the Transaction ID / UTR after completing payment!",
+     );
+   }
+
+   // 3. Prepare the payload exactly as the backend expects
+   const orderData = {
+     userId: user.id,
+     username: user.username || user.name || "Customer",
+     email: user.email, // THIS IS REQUIRED FOR THE CUSTOMER EMAIL
+     phone,
+     address: `${address}, ${city}, ${state} - ${pincode}`,
+     cartItems: cart.map((item) => ({
+       id: item.id,
+       name: item.name,
+       quantity: item.quantity || 1,
+       price: item.price,
+       image: item.image, // Included for the order summary
+     })),
+     totalAmount: finalPrice,
+     paymentMethod,
+     transactionId: utr,
+     couponCode: coupon,
+   };
+
+   try {
+     const response = await api.post("/api/orders", orderData);
+
+     // Success logic
+     alert("Order Placed Successfully! Check your email for confirmation.");
+     clearCart();
+     localStorage.removeItem("nandhini_cart_cache");
+     navigate("/");
+   } catch (err) {
+     console.error("Order Error:", err);
+     alert(err.response?.data?.error || "Order Failed. Please try again.");
+   }
+ };
 
   if (cart.length === 0) {
     return (
@@ -351,11 +375,22 @@ const Cart = () => {
 
               <button
                 onClick={handleCheckout}
-                className="w-full mt-10 py-6 bg-amber-600 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-amber-500 transition-all"
+                disabled={isSubmitting} // Prevent double clicks
+                className={`w-full mt-10 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-xl transition-all ${
+                  isSubmitting
+                    ? "bg-slate-500 cursor-not-allowed"
+                    : "bg-amber-600 hover:bg-amber-500 text-white"
+                }`}
               >
-                {paymentMethod === "UPI/Online"
-                  ? "I Have Paid & Verified"
-                  : "Confirm Order"}
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Lucide.Loader2 className="animate-spin" /> Processing...
+                  </div>
+                ) : paymentMethod === "UPI/Online" ? (
+                  "I Have Paid & Verified"
+                ) : (
+                  "Confirm Order"
+                )}
               </button>
             </div>
           </div>

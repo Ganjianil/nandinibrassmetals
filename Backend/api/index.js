@@ -67,41 +67,53 @@ const sendOTPByEmail = async (userEmail, otp) => {
 
 // --- EMAIL LOGIC FUNCTION ---
 const sendOrderEmails = async (orderData) => {
-    // 1. Alert for YOU (Owner)
+    // Format items for the email body
+    const itemsHtml = orderData.cartItems.map(item => 
+        `<li>${item.name} (x${item.quantity}) - ₹${item.price * item.quantity}</li>`
+    ).join('');
+
+    // 1. Alert for ADMIN (You)
     const ownerMailOptions = {
-        from: `"Nandini Orders" <${process.env.EMAIL_USER}>`,
-        to: "ganjanilkumar1998@gmail.com",
-        subject: `🚨 NEW ORDER - ₹${orderData.totalAmount} from ${orderData.username}`,
+        from: `"Nandhini System" <${process.env.EMAIL_USER}>`,
+        to: "ganjanilkumar1998@gmail.com", // Your verified Admin Email
+        subject: `🚨 NEW ORDER #ORD-${Date.now().toString().slice(-4)} | ₹${orderData.totalAmount}`,
         html: `
-            <div style="font-family: Arial, sans-serif; border: 2px solid #fbbf24; padding: 20px; border-radius: 15px;">
-                <h2 style="color: #92400e;">New Order Received!</h2>
-                <p><strong>Customer:</strong> ${orderData.username}</p>
-                <p><strong>Mobile:</strong> ${orderData.phone}</p>
+            <div style="font-family: sans-serif; border: 2px solid #fbbf24; padding: 20px; border-radius: 10px;">
+                <h2 style="color: #92400e;">New Order Notification</h2>
+                <p><strong>Customer:</strong> ${orderData.username} (${orderData.email})</p>
+                <p><strong>Phone:</strong> ${orderData.phone}</p>
                 <p><strong>Address:</strong> ${orderData.address}</p>
                 <hr/>
+                <h4>Items Ordered:</h4>
+                <ul>${itemsHtml}</ul>
                 <p><strong>Total Amount:</strong> ₹${orderData.totalAmount}</p>
-                <p><strong>Payment:</strong> ${orderData.paymentMethod}</p>
-                <p>Check Admin Panel for details.</p>
+                <p><strong>Payment Status:</strong> Pending/Processing</p>
+                <a href="https://nandhinicrafts.netlify.app/admin" style="background: #fbbf24; color: black; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View in Admin Panel</a>
             </div>
         `,
     };
 
     // 2. Confirmation for CUSTOMER
     const customerMailOptions = {
-        from: `"Nandini Brass Metals" <${process.env.EMAIL_USER}>`,
+        from: `"Nandhini Crafts" <${process.env.EMAIL_USER}>`,
         to: orderData.email,
-        subject: `Order Confirmed! | Nandini Brass Metals`,
+        subject: `Order Confirmed! Your Divine Craft is on its way`,
         html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
                 <div style="background-color: #0f172a; padding: 30px; text-align: center; color: #fbbf24;">
-                    <h1>Nandini Brass Metals</h1>
+                    <h1>Nandhini Crafts</h1>
                 </div>
                 <div style="padding: 20px;">
-                    <h2>Hi ${orderData.username},</h2>
-                    <p>Your order for <strong>₹${orderData.totalAmount}</strong> has been successfully placed!</p>
-                    <p>We are preparing your items for delivery to: <br/><em>${orderData.address}</em></p>
+                    <h2>Thank you for your order, ${orderData.username}!</h2>
+                    <p>We've received your order and are getting it ready for shipment.</p>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+                        <strong>Order Summary:</strong>
+                        <ul>${itemsHtml}</ul>
+                        <p><strong>Total Paid:</strong> ₹${orderData.totalAmount}</p>
+                    </div>
+                    <p><strong>Shipping to:</strong><br/>${orderData.address}</p>
                     <hr/>
-                    <p>Thank you for shopping with us!</p>
+                    <p style="font-size: 12px; color: #64748b;">If you have any questions, reply to this email or contact us at +91 0000000000.</p>
                 </div>
             </div>
         `
@@ -112,9 +124,9 @@ const sendOrderEmails = async (orderData) => {
             transporter.sendMail(ownerMailOptions),
             transporter.sendMail(customerMailOptions)
         ]);
-        console.log("Emails sent successfully!");
+        console.log("Order Notification Emails Sent.");
     } catch (error) {
-        console.error("Email error:", error);
+        console.error("Nodemailer Error:", error);
     }
 };
 
@@ -141,7 +153,7 @@ const db = {
 // --- MIDDLEWARE ---
 app.use(cookieParser());
 app.use(cors({
-    origin: ["http://localhost:5174", "https://nandhinicrafts.netlify.app"],
+    origin: ["http://localhost:5173", "https://nandhinicrafts.netlify.app"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 }));
@@ -177,11 +189,43 @@ app.use('/uploads', express.static('uploads'));
 // Auth Guard
 const verifyAdmin = (req, res, next) => {
     const session = req.cookies.user_session;
-    if (!session) return res.status(401).json({ error: "Unauthorized" });
-    const user = typeof session === 'string' ? JSON.parse(session) : session;
-    if (user.email === "admin@gmail.com") next();
-    else res.status(403).json({ error: "Access denied" });
+    console.log("Checking Admin Session:", session); // DEBUG LOG
+
+    if (!session) return res.status(401).json({ error: "Unauthorized: No session found" });
+
+    try {
+        const user = typeof session === 'string' ? JSON.parse(session) : session;
+        // Check if the email matches your admin email exactly
+        if (user.email === "anilrocky519@gmail.com") {
+            next();
+        } else {
+            console.log("Access Denied for:", user.email);
+            res.status(403).json({ error: "Access denied: Not an admin" });
+        }
+    } catch (e) {
+        res.status(400).json({ error: "Invalid session data" });
+    }
 };
+// UPDATE CATEGORY (Name and Image)
+app.put('/api/admin/categories/:id', verifyAdmin, upload.single('image'), async (req, res) => {
+    const { name } = req.body;
+    const categoryId = req.params.id;
+    const img = req.file ? req.file.path : null; 
+
+    try {
+        if (img) {
+            // Update both name and image
+            await db.query('UPDATE categories SET name = ?, image = ? WHERE id = ?', [name, img, categoryId]);
+        } else {
+            // Update name only
+            await db.query('UPDATE categories SET name = ? WHERE id = ?', [name, categoryId]);
+        }
+        res.json({ message: "Category updated successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to update category" });
+    }
+});
 
 // --- AUTH ROUTES ---
 app.post('/api/register', async (req, res) => {
@@ -198,14 +242,28 @@ app.post('/api/login', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM users WHERE email = ?', [email.trim()]);
         if (rows.length === 0) return res.status(401).json({ error: "User not found" });
+        
         const match = await bcrypt.compare(password, rows[0].password);
         if (!match) return res.status(401).json({ error: "Invalid password" });
+
         const userData = { id: rows[0].id, username: rows[0].username, email: rows[0].email };
+
+        // --- FIXED COOKIE LOGIC ---
+        const isProduction = process.env.NODE_ENV === 'production';
+        
         res.cookie('user_session', JSON.stringify(userData), {
-            maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, secure: true, sameSite: 'None', path: '/'
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            // Only use Secure and None in production (HTTPS)
+            secure: isProduction, 
+            sameSite: isProduction ? 'None' : 'Lax', 
+            path: '/'
         });
+
         res.json({ success: true, user: userData });
-    } catch (err) { res.status(500).json({ error: "Login failed" }); }
+    } catch (err) { 
+        res.status(500).json({ error: "Login failed" }); 
+    }
 });
 
 app.post('/api/logout', (req, res) => {
@@ -370,12 +428,17 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
+// Change your order fetch slightly to ensure it doesn't double-wrap the array
 app.get('/api/orders/:userId', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC', [req.params.userId]);
         const fixed = rows.map(o => {
             let items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
-            return { ...o, items: items.map(i => ({ ...i, image: getFullUrl(req, i.image) })) };
+            // Ensure we don't return nested arrays
+            return { ...o, items: items.map(i => {
+                const img = Array.isArray(i.image) ? i.image[0] : i.image;
+                return { ...i, image: img };
+            })};
         });
         res.json(fixed);
     } catch (err) { res.status(500).json({ error: "Fetch orders error" }); }

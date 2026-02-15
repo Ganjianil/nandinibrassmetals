@@ -40,7 +40,7 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const isAdmin = user && user.email?.toLowerCase() === "admin@gmail.com";
+  const isAdmin = user && user.email?.toLowerCase() === "anilrocky519@gmail.com";
 
   const logout = () => {
     if (window.confirm("Are you sure you want to logout?")) {

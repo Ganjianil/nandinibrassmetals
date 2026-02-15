@@ -22,6 +22,7 @@ import FloatingContact from "./FloatingContact";
 import CustomOrderSuite from "./CustomOrderSuite";
 import "./index.css";
 import Profile from "./Profile"; // 1. FIXED: Capitalized Import
+import Gallery from "./Gallery"; 
 // --- RESTORING YOUR ORIGINAL SECTION COMPONENTS ---
 
 const VideoSection = () => {
@@ -239,7 +240,14 @@ const Footer = () => (
 );
 
 // --- MAIN APP COMPONENT ---
+const orderSectionRef = useRef(null);
 
+const scrollToOrder = () => {
+  orderSectionRef.current?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
 function App() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -268,7 +276,8 @@ function App() {
     };
   }, []);
 
-  const isAdmin = user && user.email?.toLowerCase() === "admin@gmail.com";
+  const isAdmin =
+    user && user.email?.toLowerCase() === "anilrocky519@gmail.com";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -297,6 +306,15 @@ function App() {
 
   return (
     <CartProvider>
+      <div className="bg-[#F9F8F6]">
+        {/* Pass the scroll function to the Gallery */}
+        <Gallery onBookNow={scrollToOrder} />
+
+        {/* Attach the ref to the Order Suite */}
+        <div ref={orderSectionRef}>
+          <CustomOrderSuite />
+        </div>
+      </div>
       <Router>
         <div className="selection:bg-amber-100 selection:text-amber-900 relative">
           <Header user={user} />
@@ -311,11 +329,6 @@ function App() {
                     <ProductList products={products} categories={categories} />
                   </div>
                   <CustomOrderSuite />
-                  <Hero />
-                  <AboutSection />
-                  <VideoSection />
-                  <GallerySection />
-                  <Footer />
                 </main>
               }
             />
@@ -355,6 +368,7 @@ function App() {
           </Routes>
         </div>
       </Router>
+      <Gallery />
     </CartProvider>
   );
 }

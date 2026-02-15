@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "./api";
 import * as Lucide from "lucide-react";
-
+import axios from "axios";
 
 const BASE_URL = api.defaults.baseURL; // ← centralize this
 const getImageUrl = (imagePath) => {
@@ -34,6 +34,7 @@ const [inquiries, setInquiries] = useState([]);
   const [editCategoryName, setEditCategoryName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryFile, setCategoryFile] = useState(null);
+  const [editCategoryImage, setEditCategoryImage] = useState(null);
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -110,7 +111,41 @@ const [imageFiles, setImageFiles] = useState([]);
       alert("Update failed.");
     }
   };
+const updateCategory = async (id, newName, imageFile) => {
+  try {
+    const formData = new FormData();
+    formData.append("name", newName);
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
 
+    const response = await axios.put(
+      `${BASE_URL}/api/admin/categories/${id}`,
+      formData,
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+
+    if (response.status === 200) {
+      // Update local state so the UI refreshes
+      setCategories(
+        categories.map((cat) =>
+          cat.id === id
+            ? { ...cat, name: newName, image: response.data.image || cat.image }
+            : cat,
+        ),
+      );
+      setIsEditing(null);
+      setEditCategoryImage(null);
+      alert("Category updated successfully!");
+    }
+  } catch (error) {
+    console.error("Error updating category:", error);
+    alert("Update failed. Make sure you are logged in as admin.");
+  }
+};
   const deleteCategory = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("Are you sure? This may affect products in this category.")) {
@@ -581,12 +616,14 @@ const [imageFiles, setImageFiles] = useState([]);
         {activeTab === "inventory" && (
           <div className="animate-fadeIn">
             {!selectedCategory ? (
+              /* --- 1. CATEGORY GRID VIEW --- */
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {categories.map((cat) => (
                   <div
                     key={cat.id}
                     className="bg-white p-6 rounded-3xl border shadow-sm group relative"
                   >
+                    {/* Action Buttons */}
                     <div className="absolute top-4 right-4 flex gap-2 z-10">
                       <button
                         onClick={(e) => {
@@ -594,44 +631,113 @@ const [imageFiles, setImageFiles] = useState([]);
                           setIsEditing(cat.id);
                           setEditCategoryName(cat.name);
                         }}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-lg"
+                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition"
                       >
                         <Lucide.Edit2 size={14} />
                       </button>
                       <button
                         onClick={(e) => deleteCategory(e, cat.id)}
-                        className="p-2 bg-red-50 text-red-600 rounded-lg"
+                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition"
                       >
                         <Lucide.Trash size={14} />
                       </button>
                     </div>
+
+                    {/* Card Content */}
                     <div
-                      onClick={() => setSelectedCategory(cat)}
+                      onClick={() => !isEditing && setSelectedCategory(cat)}
                       className="cursor-pointer"
                     >
-                      <img
-                        src={getImageUrl(cat.image)}
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/150";
-                        }}
-                        className="w-full h-32 object-cover rounded-2xl mb-4"
-                        alt={cat.name}
-                      />
-                      <h3 className="text-xl font-black text-slate-800 uppercase">
-                        {cat.name}
-                      </h3>
-                      <p className="text-xs font-bold text-slate-400 mt-1">
-                        Products:{" "}
-                        {
-                          products.filter((p) => p.category_id === cat.id)
-                            .length
-                        }
-                      </p>
+                      {/* IMAGE SECTION */}
+                      {isEditing === cat.id ? (
+                        <div
+                          className="mb-4"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <label className="block text-[10px] font-black text-slate-400 mb-1 uppercase">
+                            Change Image
+                          </label>
+                          <input
+                            type="file"
+                            onChange={(e) =>
+                              setEditCategoryImage(e.target.files[0])
+                            }
+                            className="text-xs block w-full text-slate-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src={getImageUrl(cat.image)}
+                          onError={(e) => {
+                            e.target.src = "https://via.placeholder.com/150";
+                          }}
+                          className="w-full h-32 object-cover rounded-2xl mb-4"
+                          alt={cat.name}
+                        />
+                      )}
+
+                      {/* NAME SECTION */}
+                      {isEditing === cat.id ? (
+                        <div
+                          className="space-y-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <label className="block text-[10px] font-black text-slate-400 uppercase">
+                            Category Name
+                          </label>
+                          <input
+                            type="text"
+                            value={editCategoryName}
+                            onChange={(e) =>
+                              setEditCategoryName(e.target.value)
+                            }
+                            className="w-full border-2 border-blue-500 rounded-xl p-2 text-sm font-bold outline-none"
+                            autoFocus
+                          />
+                          <div className="flex gap-2 pt-2">
+                            <button
+                              onClick={() =>
+                                updateCategory(
+                                  cat.id,
+                                  editCategoryName,
+                                  editCategoryImage,
+                                )
+                              }
+                              className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-[10px] font-black"
+                            >
+                              SAVE
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditing(null);
+                                setEditCategoryImage(null);
+                              }}
+                              className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-[10px] font-black"
+                            >
+                              CANCEL
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="text-xl font-black text-slate-800 uppercase">
+                            {cat.name}
+                          </h3>
+                          <p className="text-xs font-bold text-slate-400 mt-1">
+                            Products:{" "}
+                            {
+                              products.filter((p) => p.category_id === cat.id)
+                                .length
+                            }
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : viewingProduct ? (
+              /* --- 2. PRODUCT DETAIL VIEW --- */
               <div className="animate-fadeIn space-y-6">
                 <button
                   onClick={() => setViewingProduct(null)}
@@ -684,6 +790,7 @@ const [imageFiles, setImageFiles] = useState([]);
                 </div>
               </div>
             ) : (
+              /* --- 3. PRODUCT LIST VIEW --- */
               <div>
                 <button
                   onClick={() => setSelectedCategory(null)}
@@ -694,62 +801,41 @@ const [imageFiles, setImageFiles] = useState([]);
                 <div className="bg-white rounded-3xl border divide-y">
                   {products
                     .filter((p) => p.category_id === selectedCategory.id)
-                    .map((p) => {
-                      const hasDiscount =
-                        p.discount_price != null &&
-                        Number(p.discount_price) > 0;
-
-                      return (
-                        <div
-                          key={p.id}
-                          onClick={() => setViewingProduct(p)}
-                          className="p-5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition"
-                        >
-                          <div className="flex items-center gap-6">
-                            <img
-                              src={
-                                p.image
-                                  ? `${BASE_URL}${p.image}`
-                                  : "https://via.placeholder.com/64"
-                              }
-                              onError={(e) => {
-                                e.target.src = "https://via.placeholder.com/64";
-                              }}
-                              className="w-16 h-16 object-cover rounded-xl"
-                              alt={p.name}
-                            />
-                            <div>
-                              <h4 className="font-black text-slate-800 uppercase text-sm">
-                                {p.name}
-                              </h4>
-                              <div className="flex gap-4 items-center">
-                                {hasDiscount ? (
-                                  <>
-                                    <p className="text-blue-600 font-black">
-                                      ₹{Number(p.discount_price).toFixed(2)}
-                                    </p>
-                                    <p className="text-slate-400 font-bold text-[10px] line-through">
-                                      ₹{Number(p.price).toFixed(2)}
-                                    </p>
-                                  </>
-                                ) : (
-                                  <p className="text-blue-600 font-black">
-                                    ₹{Number(p.price).toFixed(2)}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => setViewingProduct(p)}
+                        className="p-5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition"
+                      >
+                        <div className="flex items-center gap-6">
+                          <img
+                            src={
+                              p.image
+                                ? Array.isArray(p.image)
+                                  ? p.image[0]
+                                  : `${BASE_URL}${p.image}`
+                                : "https://via.placeholder.com/64"
+                            }
+                            className="w-16 h-16 object-cover rounded-xl"
+                            alt={p.name}
+                          />
+                          <div>
+                            <h4 className="font-black text-slate-800 uppercase text-sm">
+                              {p.name}
+                            </h4>
+                            <p className="text-blue-600 font-black">
+                              ₹{Number(p.price).toFixed(2)}
+                            </p>
                           </div>
-                          <Lucide.ChevronRight className="text-slate-300" />
                         </div>
-                      );
-                    })}
+                        <Lucide.ChevronRight className="text-slate-300" />
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
           </div>
         )}
-
         {/* ADD NEW CONTENT TAB */}
         {activeTab === "add-new" && (
           <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -1037,11 +1123,11 @@ const [imageFiles, setImageFiles] = useState([]);
                             {promo.code}
                           </span>
                         </td>
-                       <td className="p-6 font-bold text-slate-700">
-  {/* Change 'discount' to 'discount_percent' */}
-  {promo.discount_percent}% OFF
-</td>
-                        
+                        <td className="p-6 font-bold text-slate-700">
+                          {/* Change 'discount' to 'discount_percent' */}
+                          {promo.discount_percent}% OFF
+                        </td>
+
                         <td className="p-6 text-sm font-medium text-slate-400">
                           {new Date(promo.expiry_date).toLocaleDateString()}
                         </td>

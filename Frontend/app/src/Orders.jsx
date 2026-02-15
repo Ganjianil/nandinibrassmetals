@@ -7,47 +7,59 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const API_BASE_URL = api.defaults.baseURL;
+  const API_BASE_URL = api.defaults.baseURL || "http://localhost:5000";
 
-  // --- FIXED: HELPER TO RESOLVE IMAGE URL SAFELY ---
-  const getImageUrl = (path) => {
-    if (!path) return "https://via.placeholder.com/150?text=No+Image";
+  // --- BULLETPROOF IMAGE RESOLVER ---
+const getImageUrl = (path) => {
+  if (!path || path === "undefined" || path === "null") {
+    return "https://placehold.co/150x150?text=No+Image";
+  }
 
-    let finalPath = path;
+  let finalPath = path;
 
-    // 1. Handle if path is a JSON string (e.g. '["url.jpg"]')
-    if (
-      typeof path === "string" &&
-      (path.startsWith("[") || path.startsWith("{"))
-    ) {
-      try {
-        const parsed = JSON.parse(path);
-        finalPath = Array.isArray(parsed) ? parsed[0] : parsed;
-      } catch (e) {
-        finalPath = path;
-      }
-    }
-    // 2. Handle if path is already an Array
-    else if (Array.isArray(path)) {
-      finalPath = path[0];
+  // 1. Handle deep nesting (The [[url]] issue from your logs)
+  try {
+    // If it's a stringified array, parse it
+    if (typeof path === "string" && path.startsWith("[")) {
+      finalPath = JSON.parse(path);
     }
 
-    // 3. Final safety check: ensure we are working with a string now
-    if (typeof finalPath !== "string") {
-      return "https://via.placeholder.com/150?text=No+Image";
+    // If it's an array, keep grabbing the first element until it's a string
+    while (Array.isArray(finalPath) && finalPath.length > 0) {
+      finalPath = finalPath[0];
     }
+  } catch (e) {
+    console.error("Image parsing error:", e);
+  }
 
-    // 4. Check for absolute vs relative URL
-    if (finalPath.startsWith("http")) return finalPath;
-    return `${API_BASE_URL}${finalPath}`;
-  };
+  // 2. SAFETY CHECK: If it's still not a string, return placeholder
+  if (typeof finalPath !== "string") {
+    return "https://placehold.co/150x150?text=Error";
+  }
 
+  // 3. CRITICAL FIX: If it is a Cloudinary/External URL, return it AS IS
+  if (finalPath.startsWith("http")) {
+    return finalPath;
+  }
+
+  // 4. Only append Localhost if it's a local file path (like /uploads/...)
+  const base = (api.defaults.baseURL || "http://localhost:5000").replace(
+    /\/$/,
+    "",
+  );
+  const cleanPath = finalPath.startsWith("/") ? finalPath : `/${finalPath}`;
+
+  return `${base}${cleanPath}`;
+};
   // Safe JSON Parsing Helper
   const getParsedItems = (itemsData) => {
     try {
       if (!itemsData) return [];
-      if (typeof itemsData === "string") return JSON.parse(itemsData);
-      return itemsData;
+      // Handle double stringification
+      let parsed =
+        typeof itemsData === "string" ? JSON.parse(itemsData) : itemsData;
+      if (typeof parsed === "string") parsed = JSON.parse(parsed);
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       console.error("Parsing Error:", e);
       return [];
@@ -79,33 +91,31 @@ const Orders = () => {
   }, []);
 
   const handleCancel = async (orderId) => {
-    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    if (!window.confirm("Are you sure you want to cancel?")) return;
     try {
       await api.patch(`/api/orders/${orderId}/cancel`);
-      alert("Order Cancelled successfully.");
+      alert("Order Cancelled.");
       fetchOrders();
     } catch (err) {
-      alert(err.response?.data?.error || "Error cancelling order");
+      alert(err.response?.data?.error || "Error");
     }
   };
 
   const handleDownloadInvoice = (order) => {
     const items = getParsedItems(order.items || order.cartItems);
     const invoiceWindow = window.open("", "_blank");
-
     invoiceWindow.document.write(`
       <html>
         <head>
           <title>Invoice_#${order.id}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; }
             .invoice-card { max-width: 800px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 20px; }
             .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
-            .company-brand { font-weight: 900; font-size: 24px; margin: 0; color: #b45309; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; background: #f8fafc; padding: 20px; border-radius: 15px; }
             table { width: 100%; border-collapse: collapse; }
-            th { text-align: left; padding: 12px; background: #f1f5f9; font-size: 11px; text-transform: uppercase; }
+            th { text-align: left; padding: 12px; background: #f1f5f9; font-size: 11px; }
             td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
             .grand-total { background: #1e293b; color: white; padding: 15px; border-radius: 10px; margin-top: 20px; text-align: right; font-weight: bold; }
           </style>
@@ -113,23 +123,15 @@ const Orders = () => {
         <body>
           <div class="invoice-card">
             <div class="header">
-              <div>
-                <h2 class="company-brand">NANDINI BRASS & METALS</h2>
-                <p style="font-size: 11px;">GSTIN: 36ANUPY8270B1ZB<br>Hyderabad, Telangana</p>
-              </div>
-              <div style="text-align: right;">
-                <h1 style="margin:0; color:#cbd5e1;">INVOICE</h1>
-                <p style="font-size: 12px;">#ORD-${order.id}</p>
-              </div>
+              <div><h2 style="color:#b45309">NANDINI BRASS & METALS</h2><p style="font-size:11px">GSTIN: 36ANUPY8270B1ZB</p></div>
+              <div style="text-align:right"><h1>INVOICE</h1><p>#ORD-${order.id}</p></div>
             </div>
             <div class="info-grid">
               <div><strong>Bill To:</strong><br>${order.username}<br>${order.address}</div>
-              <div style="text-align: right;"><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString()}</div>
+              <div style="text-align:right"><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString()}</div>
             </div>
             <table>
-              <thead>
-                <tr><th>Item</th><th>Qty</th><th>Price</th><th style="text-align:right">Total</th></tr>
-              </thead>
+              <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th style="text-align:right">Total</th></tr></thead>
               <tbody>
                 ${items
                   .map(
@@ -144,9 +146,9 @@ const Orders = () => {
                   .join("")}
               </tbody>
             </table>
-            <div class="grand-total">Amount Payable: ₹${parseFloat(order.total_amount).toLocaleString()}</div>
+            <div class="grand-total">Amount Paid: ₹${parseFloat(order.total_amount).toLocaleString()}</div>
           </div>
-          <script>window.onload = () => { setTimeout(() => window.print(), 500); }</script>
+          <script>window.onload = () => setTimeout(() => window.print(), 500);</script>
         </body>
       </html>
     `);
@@ -161,9 +163,7 @@ const Orders = () => {
     );
   if (loading)
     return (
-      <div className="p-10 text-center animate-pulse">
-        Loading your orders...
-      </div>
+      <div className="p-10 text-center animate-pulse">Loading orders...</div>
     );
 
   return (
@@ -199,9 +199,9 @@ const Orders = () => {
                       {new Date(order.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 w-full md:w-auto">
+                  <div className="flex items-center gap-3">
                     <span
-                      className={`flex-1 md:flex-none text-center px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${
+                      className={`px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${
                         order.status === "Cancelled"
                           ? "bg-red-50 text-red-600"
                           : order.status === "Delivered"
@@ -214,7 +214,6 @@ const Orders = () => {
                     <button
                       onClick={() => handleDownloadInvoice(order)}
                       className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-amber-600 transition-colors shadow-lg"
-                      title="Download Invoice"
                     >
                       <Lucide.Download size={18} />
                     </button>
@@ -228,14 +227,22 @@ const Orders = () => {
                         key={idx}
                         className="flex items-center gap-5 p-4 bg-slate-50 rounded-[2rem] border border-slate-100"
                       >
-                        <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-white shadow-sm">
+                        <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden border border-white shadow-sm bg-white">
                           <img
-                            src={getImageUrl(item.image)}
+                            // ATTEMPT TO FIND IMAGE PROPERTY BY MULTIPLE NAMES
+                            src={getImageUrl(
+                              item.image ||
+                                item.product_image ||
+                                item.img ||
+                                item.url,
+                            )}
                             className="w-full h-full object-cover"
                             alt={item.name}
                             onError={(e) => {
+                              // If even the resolved URL fails, use an inline SVG as last resort
+                              e.target.onerror = null;
                               e.target.src =
-                                "https://via.placeholder.com/150?text=Brass";
+                                "https://placehold.co/150x150?text=Brass";
                             }}
                           />
                         </div>
@@ -265,7 +272,6 @@ const Orders = () => {
                         <h3 className="text-4xl font-black text-amber-500 tracking-tighter">
                           ₹{parseFloat(order.total_amount).toLocaleString()}
                         </h3>
-
                         <div className="mt-6 pt-6 border-t border-slate-800">
                           <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
                             <Lucide.MapPin
