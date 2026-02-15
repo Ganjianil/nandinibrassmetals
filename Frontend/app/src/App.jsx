@@ -21,7 +21,7 @@ import Orders from "./Orders";
 import FloatingContact from "./FloatingContact";
 import CustomOrderSuite from "./CustomOrderSuite";
 import "./index.css";
-
+import Profile from "./Profile"; // 1. FIXED: Capitalized Import
 // --- RESTORING YOUR ORIGINAL SECTION COMPONENTS ---
 
 const VideoSection = () => {
@@ -319,7 +319,6 @@ function App() {
                 </main>
               }
             />
-
             <Route
               path="/category/:id"
               element={
@@ -329,7 +328,6 @@ function App() {
                 </main>
               }
             />
-
             <Route
               path="/product/:id"
               element={
@@ -339,8 +337,11 @@ function App() {
                 </>
               }
             />
-
             <Route path="/cart" element={<Cart />} />
+            <Route
+              path="/profile"
+              element={user ? <Profile /> : <Navigate to="/auth" />}
+            />{" "}
             <Route
               path="/auth"
               element={isAdmin ? <Navigate to="/admin" /> : <Auth />}

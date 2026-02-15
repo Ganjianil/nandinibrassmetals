@@ -123,7 +123,7 @@ const db = {
 // --- MIDDLEWARE ---
 app.use(cookieParser());
 app.use(cors({
-    origin: ["http://localhost:5173", "https://nandhinicrafts.netlify.app"],
+    origin: ["http://localhost:5174/", "https://nandhinicrafts.netlify.app"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 }));

@@ -25,13 +25,45 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 // --- NODEMAILER TRANSPORTER CONFIG ---
-const transporter = nodemailer.createTransport({
-    service: "gmail",
+const transporter = nodemailer.createTransport({    service: "gmail",
     auth: {
         user: process.env.EMAIL_USER, // Your Gmail
         pass: process.env.EMAIL_PASS, // Your 16-digit App Password
     },
 });
+const sendOTPByEmail = async (userEmail, otp) => {
+  const mailOptions = {
+    from: '"Nandhini Crafts" <security@nandhinicrafts.com>',
+    to: userEmail,
+    subject: `${otp} is your verification code`,
+    html: `
+      <div style="font-family: 'Helvetica', sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background-color: #0f172a; padding: 40px; text-align: center;">
+          <h1 style="color: #f59e0b; margin: 0; font-size: 28px; letter-spacing: 2px; text-transform: uppercase;">Nandhini</h1>
+          <p style="color: #94a3b8; margin: 5px 0 0 0; font-style: italic;">Crafts & Tradition</p>
+        </div>
+        <div style="padding: 40px; background-color: #ffffff; text-align: center;">
+          <h2 style="color: #1e293b; margin-bottom: 20px;">Verify Your Identity</h2>
+          <p style="color: #64748b; font-size: 16px; line-height: 1.6;">
+            We received a request to reset your password. Use the code below to proceed. 
+            <strong>This code will expire in 5 minutes.</strong>
+          </p>
+          <div style="margin: 30px 0; padding: 20px; background-color: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px;">
+            <span style="font-size: 42px; font-weight: bold; letter-spacing: 15px; color: #b45309; margin-left: 15px;">${otp}</span>
+          </div>
+          <p style="color: #94a3b8; font-size: 12px;">
+            If you did not request this, please ignore this email or contact support if you have concerns.
+          </p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 11px; margin: 0;">&copy; 2026 Nandhini Crafts. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  return transporter.sendMail(mailOptions);
+};
 
 // --- EMAIL LOGIC FUNCTION ---
 const sendOrderEmails = async (orderData) => {
@@ -109,7 +141,7 @@ const db = {
 // --- MIDDLEWARE ---
 app.use(cookieParser());
 app.use(cors({
-    origin: ["http://localhost:5173", "https://nandhinicrafts.netlify.app"],
+    origin: ["http://localhost:5174", "https://nandhinicrafts.netlify.app"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 }));
@@ -196,7 +228,89 @@ app.get('/products', async (req, res) => {
         res.json(rows.map(p => ({ ...p, image: getFullUrl(req, p.image) })));
     } catch (err) { res.status(500).json({ error: "Fetch error" }); }
 });
+// --- BACKEND OTP LOGIC ---
 
+let otpStore = {}; // Temporary memory (Use Redis or Database for production)
+
+// 1. Send OTP
+app.post("/api/send-otp", async (req, res) => {
+  const { email } = req.body;
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Save OTP with 5-minute expiry
+  otpStore[email] = { otp, expires: Date.now() + 300000 };
+
+  try {
+    // Use Nodemailer to send the email
+    await transporter.sendMail({
+      from: '"Nandhini Crafts" <noreply@nandhini.com>',
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your security code is: ${otp}. It expires in 5 minutes.`,
+    });
+    res.json({ message: "OTP Sent" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to send email" });
+  }
+});
+
+// 2. Verify OTP
+app.post("/api/verify-otp", (req, res) => {
+  const { email, otp } = req.body;
+  const entry = otpStore[email];
+
+  if (entry && entry.otp === otp && Date.now() < entry.expires) {
+    res.json({ message: "OTP Verified" });
+  } else {
+    res.status(400).json({ error: "Invalid or expired OTP" });
+  }
+});
+
+// 3. Reset Password
+// 1. MUST HAVE THIS AT THE TOP
+
+// ... other imports ...
+
+app.post("/api/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: "Email and new password are required" });
+    }
+
+    console.log("Attempting password reset for:", email);
+
+    // 1. Hash the new password using bcrypt
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // 2. Update the Database using your 'db' helper
+    // We use your '?' syntax which your helper converts to '$1, $2'
+    const result = await db.query(
+      "UPDATE users SET password = ? WHERE email = ?",
+      [hashedPassword, email.trim().toLowerCase()]
+    );
+
+    // result.rowCount tells us if any row was actually changed
+    if (result.rowCount === 0) {
+      console.log("User not found in DB for email:", email);
+      return res.status(404).json({ error: "No account found with this email." });
+    }
+
+    // 3. Clear the OTP from your temporary memory
+    if (otpStore[email]) {
+      delete otpStore[email];
+    }
+
+    console.log("Password updated successfully in PostgreSQL for:", email);
+    res.json({ message: "Password updated successfully!" });
+
+  } catch (error) {
+    console.error("BACKEND CRASH DETAILS:", error);
+    res.status(500).json({ error: "Server Error: " + error.message });
+  }
+});
 app.get('/api/products/:id', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
