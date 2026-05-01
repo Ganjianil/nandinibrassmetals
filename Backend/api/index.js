@@ -518,18 +518,29 @@ app.post("/api/admin/products", verifyAdmin, upload.array('images', 10), async (
     const { name, price, discount_price, stock, description, long_description, category_id } = req.body;
 
     try {
+        const parsedPrice = parseFloat(price);
+        const parsedDiscountPrice =
+            discount_price === undefined || discount_price === null || discount_price === ""
+                ? null
+                : parseFloat(discount_price);
+        const parsedStock = parseInt(stock, 10);
+        const parsedCategoryId =
+            category_id === undefined || category_id === null || category_id === ""
+                ? null
+                : parseInt(category_id, 10);
+
         await db.query(
             `INSERT INTO products 
              (name, price, discount_price, stock, description, long_description, category_id, image)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 name, 
-                parseFloat(price) || 0, 
-                parseFloat(discount_price) || 0, 
-                parseInt(stock) || 0, 
+                Number.isNaN(parsedPrice) ? 0 : parsedPrice,
+                Number.isNaN(parsedDiscountPrice) ? null : parsedDiscountPrice,
+                Number.isNaN(parsedStock) ? 0 : parsedStock,
                 description, 
                 long_description, 
-                category_id ? parseInt(category_id) : null, 
+                Number.isNaN(parsedCategoryId) ? null : parsedCategoryId,
                 // 2. Convert the array to a JSON string so getFullUrl can parse it later
                 JSON.stringify(imageUrls) 
             ]

@@ -209,7 +209,11 @@ const updateCategory = async (id, newName, imageFile) => {
      fetchData();
    } catch (err) {
      console.error(err);
-     alert("Upload failed");
+     const serverMsg =
+       err?.response?.data?.details ||
+       err?.response?.data?.error ||
+       err?.message;
+     alert(`Upload failed: ${serverMsg || "Unknown error"}`);
    }
  };
 
