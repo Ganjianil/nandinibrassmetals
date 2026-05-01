@@ -122,11 +122,27 @@ const db = {
 
 // --- MIDDLEWARE ---
 app.use(cookieParser());
-app.use(cors({
-    origin: ["http://localhost:5174/", "https://nandhinicrafts.netlify.app"],
+const allowedOrigins = new Set([
+  "https://nandhinicrafts.netlify.app",
+]);
+
+const isAllowedDevOrigin = (origin = "") =>
+  /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (curl/postman/server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin) || isAllowedDevOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-}));
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  })
+);
 app.use(express.json());
 app.use((req, res, next) => {
     if (req.path === '/api/admin/products') {

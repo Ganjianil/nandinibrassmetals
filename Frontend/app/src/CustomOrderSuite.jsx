@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import * as Lucide from "lucide-react";
-import api from "./api"; // Ensure this points to your axios/api config
+import api from "./api";
 
 const CustomOrderSuite = () => {
   const [formData, setFormData] = useState({
@@ -22,7 +22,6 @@ const CustomOrderSuite = () => {
     try {
       await api.post("/api/custom-consultations", formData);
       setSubmitted(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       alert("Error submitting request. Please try again.");
     } finally {
@@ -32,25 +31,36 @@ const CustomOrderSuite = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#F9F8F6] flex items-center justify-center px-6">
-        <div className="text-center space-y-8 animate-in fade-in zoom-in duration-1000">
-          <div className="w-20 h-20 bg-[#C5A059]/10 text-[#C5A059] rounded-full flex items-center justify-center mx-auto border border-[#C5A059]/20">
+      <div className="bg-gradient-to-b from-[#F9F8F6] to-white py-16 px-4 sm:px-6">
+        <div className="max-w-2xl mx-auto text-center space-y-7 bg-white border border-amber-100 shadow-xl rounded-3xl p-8 sm:p-12 animate-in fade-in zoom-in duration-700">
+          <div className="w-20 h-20 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto border border-amber-200">
             <Lucide.Check size={32} strokeWidth={1.5} />
           </div>
           <div className="space-y-4">
-            <h2 className="text-5xl md:text-7xl font-serif italic text-[#1A1A1A]">
+            <h2 className="text-4xl md:text-6xl font-serif italic text-slate-900">
               Pranams.
             </h2>
-            <p className="text-zinc-500 text-lg max-w-sm mx-auto font-serif italic">
+            <p className="text-slate-500 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
               Your inquiry has been archived. Our master artisans will reach out
               to you at{" "}
-              <span className="text-[#C5A059] font-bold">{formData.phone}</span>
+              <span className="text-amber-700 font-bold">{formData.phone}</span>
               .
             </p>
           </div>
           <button
-            onClick={() => setSubmitted(false)}
-            className="px-12 py-4 bg-[#1A1A1A] text-white rounded-sm font-bold uppercase text-[10px] tracking-[0.4em] hover:bg-[#C5A059] transition-all duration-500 shadow-xl"
+            onClick={() => {
+              setSubmitted(false);
+              setFormData({
+                metal: "Brass",
+                phone: "",
+                height: "",
+                weight: "",
+                state: "",
+                expectedDate: "",
+                details: "",
+              });
+            }}
+            className="px-8 py-3.5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.18em] hover:bg-amber-600 transition-all duration-300 shadow-lg"
           >
             New Inquiry
           </button>
@@ -60,55 +70,55 @@ const CustomOrderSuite = () => {
   }
 
   return (
-    <div className="bg-[#F9F8F6] min-h-screen py-24 px-6 lg:px-20 relative overflow-hidden selection:bg-[#C5A059]/30">
+    <section className="bg-gradient-to-b from-[#F9F8F6] via-[#fdfcf9] to-white py-14 sm:py-20 px-4 sm:px-6 lg:px-12 relative overflow-hidden selection:bg-amber-200/40">
       {/* Decorative Accents */}
-      <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-[#C5A059]/5 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]" />
+      <div className="absolute top-[-10%] right-[-5%] w-[440px] h-[440px] bg-amber-300/20 rounded-full blur-[120px]" />
+      <div className="absolute bottom-[-10%] left-[-5%] w-[360px] h-[360px] bg-indigo-200/20 rounded-full blur-[100px]" />
 
-      <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-20 items-start relative z-10">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-10 lg:gap-12 items-start relative z-10">
         {/* Left: Content Section */}
-        <div className="lg:col-span-5 space-y-16 lg:sticky lg:top-24">
-          <div className="space-y-8">
-            <div className="flex items-center gap-4 text-[#C5A059]">
-              <div className="h-[1px] w-12 bg-[#C5A059]"></div>
-              <span className="text-[10px] font-black uppercase tracking-[0.5em]">
+        <div className="lg:col-span-5 space-y-10 lg:sticky lg:top-24">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-700">
+              <Lucide.Sparkles size={12} />
+              <span className="text-[10px] font-black uppercase tracking-[0.24em]">
                 Legacy Collection
               </span>
             </div>
-            <h1 className="text-[10vw] lg:text-[7vw] font-serif italic leading-[0.85] tracking-tighter text-[#1A1A1A]">
-              Customized <br />{" "}
-              <span className="not-italic text-[#E5E1DA]">Order.</span>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif italic leading-[0.9] tracking-tight text-slate-900">
+              Custom
+              <span className="block not-italic text-amber-700">Order</span>
             </h1>
-            <p className="text-zinc-500 text-xl font-serif italic leading-relaxed max-w-sm">
-              From divine iconography to architectural marvels, book your
-              consultation with our master sculptors.
+            <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-md">
+              From divine iconography to architectural masterpieces, share your
+              requirements and our artisans will guide you step by step.
             </p>
           </div>
 
-          <div className="space-y-8 pt-8 border-t border-[#E5E1DA]">
-            <div className="flex gap-6 items-start">
-              <div className="p-3 bg-white shadow-sm border border-[#F0EDE8]">
-                <Lucide.ShieldCheck className="text-[#C5A059]" size={20} />
+          <div className="space-y-6 pt-6 border-t border-amber-100">
+            <div className="flex gap-4 items-start">
+              <div className="p-3 rounded-xl bg-white shadow-sm border border-amber-100">
+                <Lucide.ShieldCheck className="text-amber-700" size={18} />
               </div>
               <div>
-                <h4 className="text-[#1A1A1A] font-bold text-xs uppercase tracking-widest">
+                <h4 className="text-slate-900 font-bold text-xs uppercase tracking-widest">
                   Shilpa Shastra
                 </h4>
-                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   Absolute adherence to Agamic traditions and divine
                   proportions.
                 </p>
               </div>
             </div>
-            <div className="flex gap-6 items-start">
-              <div className="p-3 bg-white shadow-sm border border-[#F0EDE8]">
-                <Lucide.Crown className="text-[#C5A059]" size={20} />
+            <div className="flex gap-4 items-start">
+              <div className="p-3 rounded-xl bg-white shadow-sm border border-amber-100">
+                <Lucide.Crown className="text-amber-700" size={18} />
               </div>
               <div>
-                <h4 className="text-[#1A1A1A] font-bold text-xs uppercase tracking-widest">
+                <h4 className="text-slate-900 font-bold text-xs uppercase tracking-widest">
                   Museum Quality
                 </h4>
-                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   Certified purity in Brass, Silver, and Panchaloha alloys.
                 </p>
               </div>
@@ -118,11 +128,24 @@ const CustomOrderSuite = () => {
 
         {/* Right: Form Section */}
         <div className="lg:col-span-7">
-          <div className="bg-white p-8 md:p-16 border border-[#E5E1DA] shadow-[0_30px_100px_-20px_rgba(0,0,0,0.04)] rounded-sm">
-            <form onSubmit={handleSubmit} className="space-y-12">
+          <div className="bg-white p-5 sm:p-8 md:p-10 border border-amber-100 shadow-xl rounded-3xl">
+            <div className="mb-7 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                  Book Consultation
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Fill the form and get a callback in 24 hours.
+                </p>
+              </div>
+              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-amber-50 text-amber-700 items-center justify-center border border-amber-200">
+                <Lucide.ScrollText size={18} />
+              </div>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-8">
               {/* Metal Selection */}
-              <div className="space-y-6">
-                <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
                   Select Composition
                 </label>
                 <div className="grid grid-cols-3 gap-3">
@@ -131,11 +154,11 @@ const CustomOrderSuite = () => {
                       key={m}
                       type="button"
                       onClick={() => setFormData({ ...formData, metal: m })}
-                      className={`py-4 border text-[10px] font-bold uppercase tracking-widest transition-all duration-500 rounded-sm
+                      className={`py-3 sm:py-3.5 border text-[11px] font-bold uppercase tracking-wide transition-all duration-300 rounded-xl
                         ${
                           formData.metal === m
-                            ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
-                            : "bg-transparent text-zinc-400 border-[#E5E1DA] hover:border-[#1A1A1A] hover:text-[#1A1A1A]"
+                            ? "bg-slate-900 text-white border-slate-900 shadow-md"
+                            : "bg-white text-slate-500 border-slate-200 hover:border-amber-300 hover:text-slate-900"
                         }`}
                     >
                       {m}
@@ -145,104 +168,110 @@ const CustomOrderSuite = () => {
               </div>
 
               {/* Form Fields Grid */}
-              <div className="grid md:grid-cols-2 gap-x-12 gap-y-10">
+              <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
                 <div className="space-y-3 group">
-                  <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400 group-focus-within:text-[#C5A059] transition-colors">
+                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
                     Contact Number
                   </label>
                   <input
                     type="tel"
                     required
                     placeholder="+91 --- --- ----"
-                    className="w-full bg-transparent border-b border-[#E5E1DA] py-4 text-[#1A1A1A] focus:border-[#C5A059] transition-all outline-none font-serif text-lg italic"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
+                    value={formData.phone}
                   />
                 </div>
 
                 <div className="space-y-3 group">
-                  <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400 group-focus-within:text-[#C5A059] transition-colors">
+                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
                     Temple Location
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="City / State"
-                    className="w-full bg-transparent border-b border-[#E5E1DA] py-4 text-[#1A1A1A] focus:border-[#C5A059] transition-all outline-none font-serif text-lg italic"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
                     onChange={(e) =>
                       setFormData({ ...formData, state: e.target.value })
                     }
+                    value={formData.state}
                   />
                 </div>
 
                 <div className="space-y-3 group">
-                  <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400 group-focus-within:text-[#C5A059] transition-colors">
+                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
                     Desired Height (ft)
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. 3.5 ft"
-                    className="w-full bg-transparent border-b border-[#E5E1DA] py-4 text-[#1A1A1A] focus:border-[#C5A059] transition-all outline-none font-serif text-lg italic"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
                     onChange={(e) =>
                       setFormData({ ...formData, height: e.target.value })
                     }
+                    value={formData.height}
                   />
                 </div>
 
                 <div className="space-y-3 group">
-                  <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400 group-focus-within:text-[#C5A059] transition-colors">
+                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
                     Estimated Weight (kg)
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. 50 kg"
-                    className="w-full bg-transparent border-b border-[#E5E1DA] py-4 text-[#1A1A1A] focus:border-[#C5A059] transition-all outline-none font-serif text-lg italic"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
                     onChange={(e) =>
                       setFormData({ ...formData, weight: e.target.value })
                     }
+                    value={formData.weight}
                   />
                 </div>
 
                 <div className="space-y-3 group md:col-span-2">
-                  <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400 group-focus-within:text-[#C5A059] transition-colors">
+                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
                     Expected Delivery Date
                   </label>
                   <input
                     type="date"
                     required
-                    className="w-full bg-transparent border-b border-[#E5E1DA] py-4 text-[#1A1A1A] focus:border-[#C5A059] transition-all outline-none font-sans text-sm uppercase tracking-tighter"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
                     onChange={(e) =>
                       setFormData({ ...formData, expectedDate: e.target.value })
                     }
+                    value={formData.expectedDate}
                   />
                 </div>
               </div>
 
-              <div className="space-y-4 group">
-                <label className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-400 group-focus-within:text-[#C5A059] transition-colors">
+              <div className="space-y-3 group">
+                <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
                   Iconography Details
                 </label>
                 <textarea
                   rows="4"
                   placeholder="Describe the deity posture, Mudras, or specific Vahana requirements..."
-                  className="w-full bg-[#FDFDFD] border border-[#E5E1DA] rounded-sm p-6 text-[#1A1A1A] outline-none focus:border-[#C5A059] resize-none font-serif italic text-lg shadow-inner"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 resize-none"
                   onChange={(e) =>
                     setFormData({ ...formData, details: e.target.value })
                   }
+                  value={formData.details}
                 ></textarea>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full overflow-hidden bg-[#1A1A1A] py-6 transition-all duration-700 hover:bg-[#C5A059] disabled:opacity-50 shadow-2xl"
+                className="group relative w-full overflow-hidden bg-gradient-to-r from-slate-900 to-slate-800 py-4 rounded-xl transition-all duration-300 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 shadow-xl"
               >
-                <div className="relative z-10 flex items-center justify-center gap-4 text-white font-black uppercase text-[11px] tracking-[0.6em]">
+                <div className="relative z-10 flex items-center justify-center gap-3 text-white font-black uppercase text-xs tracking-[0.18em]">
                   {loading ? "Archiving Request..." : "Book Now"}
                   <Lucide.ArrowRight
                     size={16}
-                    className="group-hover:translate-x-3 transition-transform duration-500"
+                    className="group-hover:translate-x-1 transition-transform duration-300"
                   />
                 </div>
               </button>
@@ -250,7 +279,7 @@ const CustomOrderSuite = () => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

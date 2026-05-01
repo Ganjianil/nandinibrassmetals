@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import * as Lucide from "lucide-react";
 import { useCart } from "./CartContext";
 import Cookies from "js-cookie";
-import LogoImg from "/nandini.png"; 
+import LogoImg from "/nandini.png";
 
 const Header = () => {
   const { cart, clearCart } = useCart();
@@ -13,7 +13,11 @@ const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [user, setUser] = useState(null);
 
-  const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const navLinks = [
+    { to: "/", label: "Home" },
+    { to: "/orders", label: "Orders" },
+  ];
 
   useEffect(() => {
     const checkUser = () => {
@@ -21,7 +25,7 @@ const Header = () => {
       if (sessionCookie) {
         try {
           setUser(JSON.parse(sessionCookie));
-        } catch (error) {
+        } catch {
           setUser(null);
         }
       } else {
@@ -32,13 +36,24 @@ const Header = () => {
     checkUser();
     window.addEventListener("userLogin", checkUser);
     return () => window.removeEventListener("userLogin", checkUser);
-  }, [location]);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
 
   const isAdmin = user && user.email?.toLowerCase() === "anilrocky519@gmail.com";
 
@@ -56,47 +71,59 @@ const Header = () => {
 
   return (
     <>
-      {/* 1. FIXED SPACER: Matches the header height to prevent content overlap */}
-      <div className={`transition-all duration-500 ${isScrolled ? "h-[110px] lg:h-[130px]" : "h-[140px] lg:h-[180px]"}`}></div>
+      <div
+        className={`transition-all duration-500 ${
+          isScrolled ? "h-[86px] lg:h-[98px]" : "h-[108px] lg:h-[128px]"
+        }`}
+      />
 
       <nav
         className={`fixed top-0 left-0 right-0 z-[1000] transition-all duration-500 ${
           isScrolled
-            ? "bg-white/95 backdrop-blur-md py-2 shadow-md"
-            : "bg-white py-6"
+            ? "bg-white/90 backdrop-blur-xl py-2 shadow-lg border-b border-slate-200/80"
+            : "bg-white/95 py-4 border-b border-transparent"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex justify-between items-center">
-          
-          {/* LEFT SECTION: Mobile Menu / Desktop Links */}
           <div className="flex items-center lg:flex-1">
-            {/* Mobile Menu Button - Search Icon removed */}
             <div className="lg:hidden">
               <button
-                className="p-2 text-slate-800"
+                className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
                 onClick={() => setIsMobileMenuOpen(true)}
+                aria-label="Open menu"
               >
                 <Lucide.Menu size={28} strokeWidth={1.5} />
               </button>
             </div>
 
-            {/* Desktop Navigation Links */}
-            <div className="hidden lg:flex items-center gap-10">
-              <Link to="/" className="text-[12px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-amber-700 transition-colors">
-                Home
-              </Link>
-              <Link to="/orders" className="text-[12px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-amber-700 transition-colors">
-                Orders
-              </Link>
+            <div className="hidden lg:flex items-center gap-3">
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.to;
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.16em] transition-all ${
+                      isActive
+                        ? "bg-amber-100 text-amber-800"
+                        : "text-slate-600 hover:text-amber-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
               {isAdmin && (
-                <Link to="/admin" className="text-[12px] font-black uppercase tracking-[0.2em] text-amber-700 border-b-2 border-amber-700 pb-1">
+                <Link
+                  to="/admin"
+                  className="px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.16em] bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-amber-500/30"
+                >
                   Admin
                 </Link>
               )}
             </div>
           </div>
 
-          {/* CENTER SECTION: STYLISH BRANDING */}
           <Link
             to="/"
             className="flex flex-col items-center group cursor-pointer transition-all duration-300 px-2"
@@ -104,39 +131,43 @@ const Header = () => {
             <img
               src={LogoImg}
               alt="Nandini Brass"
-              className="h-12 md:h-16 w-auto object-contain transition-transform duration-700 group-hover:scale-110 mb-2"
+              className="h-11 md:h-14 w-auto object-contain transition-transform duration-700 group-hover:scale-110 mb-1.5"
             />
 
             <div className="flex flex-col items-center">
-              <h1 className="text-xl md:text-3xl font-serif tracking-[0.25em] text-slate-900 leading-none uppercase">
+              <h1 className="text-lg md:text-2xl font-serif tracking-[0.22em] text-slate-900 leading-none uppercase">
                 Nandhini
               </h1>
-              <div className="flex items-center gap-3 mt-2">
-                <div className="h-[1px] w-6 md:w-10 bg-amber-600/30"></div>
-                <span className="text-[10px] md:text-xs font-light italic tracking-[0.4em] text-amber-700 uppercase">
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="h-[1px] w-5 md:w-8 bg-amber-600/35" />
+                <span className="text-[9px] md:text-[10px] font-medium tracking-[0.32em] text-amber-700 uppercase">
                   Crafts
                 </span>
-                <div className="h-[1px] w-6 md:w-10 bg-amber-600/30"></div>
+                <div className="h-[1px] w-5 md:w-8 bg-amber-600/35" />
               </div>
             </div>
           </Link>
 
-          {/* RIGHT SECTION: ACCOUNT & CART */}
-          <div className="flex items-center justify-end gap-2 md:gap-6 lg:flex-1">
+          <div className="flex items-center justify-end gap-1 md:gap-3 lg:flex-1">
             <Link
               to={user ? "/profile" : "/auth"}
-              className="p-2 text-slate-800 hover:text-amber-700 transition-colors relative"
+              className="p-2.5 rounded-xl text-slate-700 hover:text-amber-700 hover:bg-slate-100 transition-colors relative"
+              aria-label="Account"
             >
-              <Lucide.User size={26} strokeWidth={1.5} />
+              <Lucide.User size={24} strokeWidth={1.7} />
               {isAdmin && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-amber-500 rounded-full border-2 border-white"></span>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-amber-500 rounded-full border-2 border-white" />
               )}
             </Link>
 
-            <Link to="/cart" className="p-2 text-slate-800 hover:text-amber-700 transition-colors relative group">
-              <Lucide.ShoppingCart size={26} strokeWidth={1.5} />
+            <Link
+              to="/cart"
+              className="p-2.5 rounded-xl text-slate-700 hover:text-amber-700 hover:bg-slate-100 transition-colors relative"
+              aria-label="Cart"
+            >
+              <Lucide.ShoppingCart size={24} strokeWidth={1.7} />
               {totalItems > 0 && (
-                <span className="absolute top-1 right-1 min-w-[20px] h-[20px] bg-amber-800 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                <span className="absolute top-[3px] right-[3px] min-w-[20px] h-[20px] bg-gradient-to-r from-amber-700 to-orange-700 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-sm px-1">
                   {totalItems}
                 </span>
               )}
@@ -145,7 +176,6 @@ const Header = () => {
         </div>
       </nav>
 
-      {/* MOBILE SIDEBAR MENU (Stayed the same) */}
       <div
         className={`fixed inset-0 z-[2000] transition-opacity duration-300 ${
           isMobileMenuOpen ? "visible opacity-100" : "invisible opacity-0"
@@ -168,20 +198,33 @@ const Header = () => {
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-2 text-slate-400 hover:text-black transition-colors"
+                aria-label="Close menu"
               >
                 <Lucide.X size={28} />
               </button>
             </div>
 
             <div className="flex flex-col gap-8">
-              <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-serif text-slate-800">
-                Home
-              </Link>
-              <Link to="/orders" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-serif text-slate-800">
-                My Orders
-              </Link>
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`text-2xl font-serif transition-colors ${
+                    location.pathname === link.to
+                      ? "text-amber-700"
+                      : "text-slate-800 hover:text-amber-700"
+                  }`}
+                >
+                  {link.to === "/orders" ? "My Orders" : link.label}
+                </Link>
+              ))}
               {isAdmin && (
-                <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="text-2xl font-serif text-amber-700 flex items-center gap-3">
+                <Link
+                  to="/admin"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-2xl font-serif text-amber-700 flex items-center gap-3"
+                >
                   <Lucide.LayoutDashboard size={24} /> Admin
                 </Link>
               )}

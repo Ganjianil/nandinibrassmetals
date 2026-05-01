@@ -22,6 +22,7 @@ const getImageUrl = (imagePath) => {
 };
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("orders");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [orders, setOrders] = useState([]);
   const [promos, setPromos] = useState([]);
   const [products, setProducts] = useState([]);
@@ -56,6 +57,10 @@ const [imageFiles, setImageFiles] = useState([]);
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [activeTab]);
 
   const fetchData = async () => {
     try {
@@ -224,22 +229,34 @@ const updateCategory = async (id, newName, imageFile) => {
 
   const handleAddPromo = async (e) => {
     e.preventDefault();
-    if (newPromo.discount <= 0 || newPromo.discount > 100) {
+    const normalizedCode = newPromo.code.trim().toUpperCase();
+    const parsedDiscount = Number(newPromo.discount);
+
+    if (!normalizedCode) {
+      alert("Please enter a promo code.");
+      return;
+    }
+
+    if (parsedDiscount <= 0 || parsedDiscount > 100) {
       alert("Please enter a discount between 1 and 100");
       return;
     }
     try {
       await api.post("/api/admin/promos", {
-        code: newPromo.code.toUpperCase(),
-        discount: parseInt(newPromo.discount),
+        code: normalizedCode,
+        discount: parsedDiscount,
         start_date: new Date().toISOString().split("T")[0],
         expiry_date: newPromo.expiry_date || "2026-12-31",
       });
-      alert(`Success! Code ${newPromo.code} is now active.`);
+      alert(`Success! Code ${normalizedCode} is now active.`);
       setNewPromo({ code: "", discount: "", start_date: "", expiry_date: "" });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to create promo code.");
+      alert(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to create promo code.",
+      );
     }
   };
 
@@ -279,45 +296,91 @@ const updateCategory = async (id, newName, imageFile) => {
     }
   };
 
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    if (tab === "inventory") {
+      setSelectedCategory(null);
+      setViewingProduct(null);
+    }
+  };
+  const tabItems = [
+    { key: "orders", label: "Orders", icon: Lucide.Package },
+    { key: "inventory", label: "Inventory", icon: Lucide.LayoutGrid },
+    { key: "add-new", label: "Add New", icon: Lucide.PlusCircle },
+    { key: "promo", label: "Promotions", icon: Lucide.Ticket },
+    { key: "custom_inquiries", label: "Inquiries", icon: Lucide.Flame },
+  ];
+
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* SIDEBAR */}
-      <div className="w-64 bg-slate-900 text-white p-6 fixed h-full shadow-2xl z-50">
-        <h2 className="text-2xl font-black mb-10 tracking-tighter text-blue-400 italic">
-          ADMIN PANEL
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+      {/* MOBILE TOP BAR */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-[70] bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <h2 className="text-sm font-black uppercase tracking-[0.12em] text-slate-800">
+          Admin Panel
         </h2>
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="p-2 rounded-lg bg-slate-100 text-slate-700"
+          aria-label="Open admin menu"
+        >
+          <Lucide.Menu size={20} />
+        </button>
+      </div>
+
+      {mobileNavOpen && (
+        <button
+          className="md:hidden fixed inset-0 z-[60] bg-black/40"
+          onClick={() => setMobileNavOpen(false)}
+          aria-label="Close admin menu overlay"
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <div
+        className={`w-72 md:w-64 bg-slate-900 text-white p-6 fixed h-full shadow-2xl z-[80] transition-transform duration-300 ${
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-8 md:mb-10">
+          <h2 className="text-2xl font-black tracking-tighter text-blue-400 italic">
+            ADMIN PANEL
+          </h2>
+          <button
+            className="md:hidden p-2 rounded-lg hover:bg-slate-800"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close admin menu"
+          >
+            <Lucide.X size={18} />
+          </button>
+        </div>
         <nav className="space-y-2">
           <button
-            onClick={() => setActiveTab("orders")}
+            onClick={() => switchTab("orders")}
             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "orders" ? "bg-blue-600 shadow-lg" : "hover:bg-slate-800 text-slate-400"}`}
           >
             <Lucide.Package size={18} /> Orders
           </button>
           <button
-            onClick={() => {
-              setActiveTab("inventory");
-              setSelectedCategory(null);
-              setViewingProduct(null);
-            }}
+            onClick={() => switchTab("inventory")}
             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "inventory" ? "bg-blue-600 shadow-lg" : "hover:bg-slate-800 text-slate-400"}`}
           >
             <Lucide.LayoutGrid size={18} /> Inventory
           </button>
           <button
-            onClick={() => setActiveTab("add-new")}
+            onClick={() => switchTab("add-new")}
             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "add-new" ? "bg-blue-600 shadow-lg" : "hover:bg-slate-800 text-slate-400"}`}
           >
             <Lucide.PlusCircle size={18} /> Add New Content
           </button>
           <button
-            onClick={() => setActiveTab("promo")}
+            onClick={() => switchTab("promo")}
             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "promo" ? "bg-blue-600 shadow-lg" : "hover:bg-slate-800 text-slate-400"}`}
           >
             <Lucide.Ticket size={18} /> Promotions
           </button>
           {/* ADD THIS BUTTON TO YOUR SIDEBAR NAV */}
           <button
-            onClick={() => setActiveTab("custom_inquiries")}
+            onClick={() => switchTab("custom_inquiries")}
             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
               activeTab === "custom_inquiries"
                 ? "bg-amber-600 shadow-lg"
@@ -329,7 +392,32 @@ const updateCategory = async (id, newName, imageFile) => {
         </nav>
       </div>
 
-      <div className="flex-1 ml-64 p-10">
+      <div className="flex-1 ml-0 md:ml-64 p-4 sm:p-6 md:p-10 pt-20 md:pt-10">
+        {/* MOBILE QUICK TABS */}
+        <div className="md:hidden mb-5">
+          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {tabItems.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => switchTab(tab.key)}
+                  className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wide border transition-all ${
+                    activeTab === tab.key
+                      ? tab.key === "custom_inquiries"
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-600 border-slate-200"
+                  }`}
+                >
+                  <Icon size={14} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ORDERS TAB */}
         {activeTab === "orders" && (
           <div className="animate-fadeIn">
@@ -478,16 +566,6 @@ const updateCategory = async (id, newName, imageFile) => {
             </div>
           </div>
         )}
-        {/* 1. ORDERS SECTION (Existing) */}
-        {activeTab === "orders" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-2xl font-black text-slate-800 mb-6 uppercase">
-              General Orders
-            </h2>
-            {/* Your Order List Component goes here */}
-          </div>
-        )}
-
         {/* 2. CUSTOM INQUIRIES SECTION */}
         {activeTab === "custom_inquiries" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
@@ -508,7 +586,7 @@ const updateCategory = async (id, newName, imageFile) => {
               </button>
             </div>
 
-            <div className="overflow-x-auto rounded-[1.5rem] border border-slate-100 shadow-inner bg-slate-50/30">
+            <div className="hidden md:block overflow-x-auto rounded-[1.5rem] border border-slate-100 shadow-inner bg-slate-50/30">
               <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead className="bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-400">
                   <tr>
@@ -609,6 +687,46 @@ const updateCategory = async (id, newName, imageFile) => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="md:hidden space-y-4">
+              {inquiries.length > 0 ? (
+                inquiries.map((iq) => (
+                  <div key={iq.id} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-[10px] font-black uppercase rounded-full">
+                        {iq.metal}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-bold">
+                        {new Date(iq.created_at).toLocaleDateString("en-IN")}
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">{iq.phone}</p>
+                    <p className="text-xs text-slate-500">{iq.location}</p>
+                    <p className="text-xs text-slate-500">
+                      {iq.height}ft • {iq.weight}kg
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => alert(`DETAILED REQUIREMENTS:\n\n${iq.details}`)}
+                        className="flex-1 p-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleDelete(iq.id)}
+                        className="flex-1 p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10 text-slate-400 text-xs font-bold uppercase tracking-widest">
+                  No inquiries yet
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1101,7 +1219,7 @@ const updateCategory = async (id, newName, imageFile) => {
             </div>
 
             {/* 3. PROMOS TABLE */}
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
               <table className="w-full text-left">
                 <thead className="bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-400">
                   <tr>
@@ -1153,6 +1271,36 @@ const updateCategory = async (id, newName, imageFile) => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {promos.length > 0 ? (
+                promos.map((promo) => (
+                  <div key={promo.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg font-black text-xs">
+                        {promo.code}
+                      </span>
+                      <button
+                        onClick={() => deletePromo(promo.id)}
+                        className="p-2 bg-red-50 text-red-500 rounded-lg"
+                      >
+                        <Lucide.Trash2 size={16} />
+                      </button>
+                    </div>
+                    <p className="mt-3 text-sm font-bold text-slate-700">
+                      {promo.discount_percent}% OFF
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Expires: {new Date(promo.expiry_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">
+                  No active promo codes found
+                </div>
+              )}
             </div>
           </div>
         )}

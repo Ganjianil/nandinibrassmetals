@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import * as Lucide from "lucide-react";
 import {
   ArrowUpRight,
@@ -13,21 +13,9 @@ import api from "./api";
 
 // --- PARENT WRAPPER ---
 const ArtisanMain = () => {
-  const orderSectionRef = useRef(null);
-
-  const scrollToOrder = () => {
-    orderSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-
   return (
     <div className="bg-[#F9F8F6]">
-      <Gallery onBookNow={scrollToOrder} />
-      <div ref={orderSectionRef}>
-        <CustomOrderSuite />
-      </div>
+      <Gallery onBookNow={() => (window.location.href = "/custom-order")} />
     </div>
   );
 };

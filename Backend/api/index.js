@@ -152,11 +152,27 @@ const db = {
 
 // --- MIDDLEWARE ---
 app.use(cookieParser());
-app.use(cors({
-    origin: ["http://localhost:5174", "https://nandhinicrafts.netlify.app"],
+const allowedOrigins = new Set([
+  "https://nandhinicrafts.netlify.app",
+]);
+
+const isAllowedDevOrigin = (origin = "") =>
+  /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (curl/postman/server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin) || isAllowedDevOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-}));
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  }),
+);
 app.use(express.json());
 
 // --- UPDATED MULTER FOR CLOUDINARY ---
@@ -642,11 +658,35 @@ app.get('/api/admin/promos', verifyAdmin, async (req, res) => {
 
 app.post('/api/admin/promos', verifyAdmin, async (req, res) => {
     const { code, discount, start_date, expiry_date } = req.body;
+    const normalizedCode = (code || "").trim().toUpperCase();
+    const parsedDiscount = parseInt(discount, 10);
+    const today = new Date().toISOString().split("T")[0];
+    const effectiveStartDate = start_date || today;
+    const effectiveExpiryDate = expiry_date || "2026-12-31";
+
+    if (!normalizedCode) {
+        return res.status(400).json({ error: "Promo code is required." });
+    }
+    if (Number.isNaN(parsedDiscount) || parsedDiscount < 1 || parsedDiscount > 100) {
+        return res.status(400).json({ error: "Discount must be between 1 and 100." });
+    }
+    if (effectiveExpiryDate < effectiveStartDate) {
+        return res.status(400).json({ error: "Expiry date cannot be before start date." });
+    }
+
     try {
-        await db.query('INSERT INTO promo_codes (code, discount_percent, is_active, start_date, expiry_date) VALUES (?, ?, ?, ?, ?)', 
-        [code.toUpperCase(), parseInt(discount), true, start_date, expiry_date]);
+        await db.query(
+            'INSERT INTO promo_codes (code, discount_percent, is_active, start_date, expiry_date) VALUES (?, ?, ?, ?, ?)',
+            [normalizedCode, parsedDiscount, true, effectiveStartDate, effectiveExpiryDate]
+        );
         res.json({ message: "Promo added" });
-    } catch (err) { res.status(500).json({ error: "Creation error" }); }
+    } catch (err) {
+        console.error("Promo create error:", err.message);
+        if (err.code === "23505") {
+            return res.status(409).json({ error: "This promo code already exists." });
+        }
+        res.status(500).json({ error: "Failed to create promo code. Please try again." });
+    }
 });
 
 app.delete('/api/admin/promos/:id', verifyAdmin, async (req, res) => {
