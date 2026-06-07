@@ -98,7 +98,13 @@ main {
 }
 
 .promo-marquee-track {
-  animation: promo-marquee 35s linear infinite;
+  animation: promo-marquee 16s linear infinite;
+}
+
+@media (min-width: 768px) {
+  .promo-marquee-track {
+    animation-duration: 32s;
+  }
 }
 
 .promo-marquee-track:hover {
