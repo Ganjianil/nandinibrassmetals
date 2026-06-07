@@ -486,6 +486,19 @@ app.patch('/api/orders/:id/cancel', async (req, res) => {
 });
 
 // --- PROMO CODES ---
+app.get('/api/promos', async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    try {
+        const { rows } = await db.query(
+            'SELECT code, discount_percent, expiry_date FROM promo_codes WHERE is_active = true AND expiry_date >= ? ORDER BY id DESC',
+            [today]
+        );
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch promos" });
+    }
+});
+
 app.post('/api/validate-promo', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     try {

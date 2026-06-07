@@ -87,3 +87,20 @@ main {
 .cubic-bezier {
   transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
+
+@keyframes promo-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.promo-marquee-track {
+  animation: promo-marquee 35s linear infinite;
+}
+
+.promo-marquee-track:hover {
+  animation-play-state: paused;
+}

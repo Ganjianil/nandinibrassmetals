@@ -248,20 +248,13 @@ const ProductList = ({ products = [], categories = [] }) => {
       <JsonLd data={websiteSchema()} />
       <JsonLd data={breadcrumbSchema(breadcrumbItems)} />
 
-      <div className="max-w-[1600px] mx-auto px-4 md:px-10 lg:px-20 py-8 space-y-16 md:space-y-32">
-        {!id && (
-          <header className="text-center max-w-3xl mx-auto pt-4 pb-2">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif text-[#0c1322] tracking-tight leading-tight">
-              Premium Brass Idols & Silver Idols Online
-            </h1>
-            <p className="mt-4 text-sm md:text-base text-slate-600 leading-relaxed">
-              Nandhini Brass & Metals crafts and delivers authentic brass god
-              statues, silver idols, pooja essentials, and custom temple
-              gajastambham work from Hyderabad to homes and temples across India.
-            </p>
-          </header>
-        )}
+      {!id && (
+        <h1 className="sr-only">
+          Premium Brass Idols & Silver Idols Online – Nandhini Brass & Metals
+        </h1>
+      )}
 
+      <div className="max-w-[1600px] mx-auto px-4 md:px-10 lg:px-20 py-8 space-y-16 md:space-y-32">
         {!id && (
           <div className="space-y-6 md:space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-10">

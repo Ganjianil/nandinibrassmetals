@@ -4,6 +4,7 @@ import * as Lucide from "lucide-react";
 import { useCart } from "./CartContext";
 import Cookies from "js-cookie";
 import LogoImg from "/nandini.png";
+import PromoMarquee from "./PromoMarquee";
 
 const Header = () => {
   const { cart, clearCart } = useCart();
@@ -56,6 +57,7 @@ const Header = () => {
   }, [isMobileMenuOpen]);
 
   const isAdmin = user && user.email?.toLowerCase() === "anilrocky519@gmail.com";
+  const isHome = location.pathname === "/";
 
   const logout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
@@ -74,7 +76,13 @@ const Header = () => {
     <>
       <div
         className={`transition-all duration-500 ${
-          isScrolled ? "h-[86px] lg:h-[98px]" : "h-[108px] lg:h-[128px]"
+          isHome
+            ? isScrolled
+              ? "h-[136px] lg:h-[148px]"
+              : "h-[158px] lg:h-[178px]"
+            : isScrolled
+              ? "h-[86px] lg:h-[98px]"
+              : "h-[108px] lg:h-[128px]"
         }`}
       />
 
@@ -175,6 +183,7 @@ const Header = () => {
             </Link>
           </div>
         </div>
+        {isHome && <PromoMarquee />}
       </nav>
 
       <div
