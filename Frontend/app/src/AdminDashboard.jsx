@@ -71,6 +71,18 @@ const [imageFiles, setImageFiles] = useState([]);
         api.get("/api/categories"),
       ]);
 
+      const adminAuthFailed = results
+        .slice(0, 2)
+        .some(
+          (r) =>
+            r.status === "rejected" &&
+            [401, 403].includes(r.reason?.response?.status),
+        );
+
+      if (adminAuthFailed && !localStorage.getItem("token")) {
+        alert("Admin session expired. Please log out and sign in again.");
+      }
+
       if (results[0].status === "fulfilled") setOrders(results[0].value.data);
       if (results[1].status === "fulfilled") setPromos(results[1].value.data);
       if (results[2].status === "fulfilled") setProducts(results[2].value.data);
@@ -101,7 +113,7 @@ const [imageFiles, setImageFiles] = useState([]);
       fetchData();
       alert("Category Created!");
     } catch (err) {
-      alert("Failed to add category");
+      alert(err.response?.data?.error || "Failed to add category");
     }
   };
 

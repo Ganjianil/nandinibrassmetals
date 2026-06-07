@@ -98,7 +98,7 @@ const Auth = () => {
 
         if (isLogin) {
           const { token, user } = res.data;
-          localStorage.setItem("token", token);
+          if (token) localStorage.setItem("token", token);
           localStorage.setItem("user", JSON.stringify(user));
           Cookies.set("user_session", JSON.stringify(user), {
             expires: 7,

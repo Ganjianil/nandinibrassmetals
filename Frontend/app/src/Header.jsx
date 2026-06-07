@@ -61,6 +61,7 @@ const Header = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       Cookies.remove("user_session");
       localStorage.removeItem("user");
+      localStorage.removeItem("token");
       window.dispatchEvent(new Event("userLogin"));
       clearCart();
       setUser(null);

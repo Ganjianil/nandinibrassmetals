@@ -202,25 +202,42 @@ const getFullUrl = (req, imagePath) => {
 // Keep static for any legacy files left on the server
 app.use('/uploads', express.static('uploads'));
 
-// Auth Guard
-const verifyAdmin = (req, res, next) => {
-    const session = req.cookies.user_session;
-    console.log("Checking Admin Session:", session); // DEBUG LOG
+const ADMIN_EMAIL = "anilrocky519@gmail.com";
 
-    if (!session) return res.status(401).json({ error: "Unauthorized: No session found" });
+const getUserFromRequest = (req) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+        try {
+            return jwt.verify(authHeader.slice(7), JWT_SECRET);
+        } catch {
+            return null;
+        }
+    }
+
+    const session = req.cookies.user_session;
+    if (!session) return null;
 
     try {
-        const user = typeof session === 'string' ? JSON.parse(session) : session;
-        // Check if the email matches your admin email exactly
-        if (user.email === "anilrocky519@gmail.com") {
-            next();
-        } else {
-            console.log("Access Denied for:", user.email);
-            res.status(403).json({ error: "Access denied: Not an admin" });
-        }
-    } catch (e) {
-        res.status(400).json({ error: "Invalid session data" });
+        return typeof session === "string" ? JSON.parse(session) : session;
+    } catch {
+        return null;
     }
+};
+
+// Auth Guard — supports JWT (cross-domain) and cookie (same-origin / local)
+const verifyAdmin = (req, res, next) => {
+    const user = getUserFromRequest(req);
+
+    if (!user) {
+        return res.status(401).json({ error: "Unauthorized: No session found" });
+    }
+
+    if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        req.user = user;
+        return next();
+    }
+
+    return res.status(403).json({ error: "Access denied: Not an admin" });
 };
 // UPDATE CATEGORY (Name and Image)
 app.put('/api/admin/categories/:id', verifyAdmin, upload.single('image'), async (req, res) => {
@@ -270,13 +287,14 @@ app.post('/api/login', async (req, res) => {
         res.cookie('user_session', JSON.stringify(userData), {
             maxAge: 7 * 24 * 60 * 60 * 1000,
             httpOnly: true,
-            // Only use Secure and None in production (HTTPS)
-            secure: isProduction, 
-            sameSite: isProduction ? 'None' : 'Lax', 
+            secure: isProduction,
+            sameSite: isProduction ? 'None' : 'Lax',
             path: '/'
         });
 
-        res.json({ success: true, user: userData });
+        const token = jwt.sign(userData, JWT_SECRET, { expiresIn: "7d" });
+
+        res.json({ success: true, user: userData, token });
     } catch (err) { 
         res.status(500).json({ error: "Login failed" }); 
     }

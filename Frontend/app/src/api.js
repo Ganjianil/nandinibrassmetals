@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 
 const isLocalHost =
   typeof window !== "undefined" &&
@@ -11,8 +11,16 @@ const baseURL =
     : "https://nandinibrassmetals.vercel.app");
 
 const api = axios.create({
-    baseURL,
-    withCredentials: true, // Automatically sends cookies with every request
+  baseURL,
+  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export default api;
