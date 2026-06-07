@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import * as Lucide from "lucide-react";
 import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
+import Seo from "./seo/Seo";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -120,6 +121,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 relative overflow-hidden font-sans px-3 py-6 sm:px-5 sm:py-8">
+      <Seo title="Sign In" path="/auth" noindex />
       {/* ✅ FIX 6: Toaster for toast notifications */}
       <Toaster
         position="top-center"

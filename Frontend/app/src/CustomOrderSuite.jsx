@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import * as Lucide from "lucide-react";
 import api from "./api";
+import Seo from "./seo/Seo";
 
 const CustomOrderSuite = () => {
   const [formData, setFormData] = useState({
@@ -71,6 +72,12 @@ const CustomOrderSuite = () => {
 
   return (
     <section className="bg-gradient-to-b from-[#F9F8F6] via-[#fdfcf9] to-white py-14 sm:py-20 px-4 sm:px-6 lg:px-12 relative overflow-hidden selection:bg-amber-200/40">
+      <Seo
+        title="Custom Brass & Silver Idol Orders"
+        description="Order bespoke brass idols, silver god statues, temple gajastambham cladding & custom metalwork. Master artisans at Nandhini Brass & Metals, Hyderabad."
+        keywords="custom brass idols, custom silver idols, temple gajastambham order, bespoke metal idols india"
+        path="/custom-order"
+      />
       {/* Decorative Accents */}
       <div className="absolute top-[-10%] right-[-5%] w-[440px] h-[440px] bg-amber-300/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] left-[-5%] w-[360px] h-[360px] bg-indigo-200/20 rounded-full blur-[100px]" />

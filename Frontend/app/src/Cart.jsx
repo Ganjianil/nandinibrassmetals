@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import axios from "axios";
 import api from "./api";
 import * as Lucide from "lucide-react";
+import Seo from "./seo/Seo";
 
 const Cart = () => {
   const { cart, totalPrice, clearCart, updateQuantity, removeFromCart } =
@@ -202,6 +203,7 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30 pb-20">
+      <Seo title="Shopping Cart" path="/cart" noindex />
       {/* Decorative Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />

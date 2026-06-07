@@ -126,7 +126,10 @@ function App() {
               path="/product/:id"
               element={
                 <>
-                  <ProductDetail products={products} />
+                  <ProductDetail
+                    products={products}
+                    categories={categories}
+                  />
                   <Footer />
                 </>
               }
@@ -134,9 +137,18 @@ function App() {
 
             <Route path="/cart" element={<Cart />} />
             <Route path="/orders" element={<Orders />} />
-            <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" />} />
-            <Route path="/auth" element={isAdmin ? <Navigate to="/admin" /> : <Auth />} />
-            <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/auth" />} />
+            <Route
+              path="/profile"
+              element={user ? <Profile /> : <Navigate to="/auth" />}
+            />
+            <Route
+              path="/auth"
+              element={isAdmin ? <Navigate to="/admin" /> : <Auth />}
+            />
+            <Route
+              path="/admin"
+              element={isAdmin ? <AdminDashboard /> : <Navigate to="/auth" />}
+            />
             <Route path="/login" element={<Navigate to="/auth" />} />
           </Routes>
         </div>

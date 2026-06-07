@@ -3,6 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
 import api from "./api";
+import Seo, { JsonLd } from "./seo/Seo";
+import {
+  breadcrumbSchema,
+  localBusinessSchema,
+  organizationSchema,
+  websiteSchema,
+} from "./seo/structuredData";
 
 const API_BASE_URL = api.defaults.baseURL;
 
@@ -197,6 +204,9 @@ const ProductList = ({ products = [], categories = [] }) => {
 
   const bannerCategories = categories.slice(0, 6);
   const rowCategories = categories.slice(6);
+  const activeCategory = id
+    ? categories.find((c) => c.id === parseInt(id))
+    : null;
 
   const filteredProducts = products.filter((p) => {
     const matchesCategory = id ? p.category_id === parseInt(id) : true;
@@ -206,9 +216,52 @@ const ProductList = ({ products = [], categories = [] }) => {
     return matchesCategory && matchesSearch;
   });
 
+  const seoTitle = activeCategory
+    ? `${activeCategory.name} – Brass & Silver Idols`
+    : "Buy Brass & Silver Idols Online";
+
+  const seoDescription = activeCategory
+    ? `Shop ${activeCategory.name} at Nandhini Brass & Metals. Handcrafted brass idols, silver god statues & temple metalwork with PAN India shipping.`
+    : "India's trusted store for brass idols, silver idols, pooja items & temple gajastambham work. Handcrafted Lord Ganesha, Shiva & Krishna statues. Hyderabad craftsmen, nationwide delivery.";
+
+  const seoKeywords = activeCategory
+    ? `${activeCategory.name}, brass idols, silver idols, buy ${activeCategory.name.toLowerCase()} online, nandhini brass metals`
+    : undefined;
+
+  const breadcrumbItems = activeCategory
+    ? [
+        { name: "Home", path: "/" },
+        { name: activeCategory.name, path: `/category/${id}` },
+      ]
+    : [{ name: "Home", path: "/" }];
+
   return (
     <div className="bg-[#faf9f6] min-h-screen">
+      <Seo
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
+        path={activeCategory ? `/category/${id}` : "/"}
+      />
+      <JsonLd data={organizationSchema()} />
+      <JsonLd data={localBusinessSchema()} />
+      <JsonLd data={websiteSchema()} />
+      <JsonLd data={breadcrumbSchema(breadcrumbItems)} />
+
       <div className="max-w-[1600px] mx-auto px-4 md:px-10 lg:px-20 py-8 space-y-16 md:space-y-32">
+        {!id && (
+          <header className="text-center max-w-3xl mx-auto pt-4 pb-2">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif text-[#0c1322] tracking-tight leading-tight">
+              Premium Brass Idols & Silver Idols Online
+            </h1>
+            <p className="mt-4 text-sm md:text-base text-slate-600 leading-relaxed">
+              Nandhini Brass & Metals crafts and delivers authentic brass god
+              statues, silver idols, pooja essentials, and custom temple
+              gajastambham work from Hyderabad to homes and temples across India.
+            </p>
+          </header>
+        )}
+
         {!id && (
           <div className="space-y-6 md:space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-10">
@@ -239,11 +292,15 @@ const ProductList = ({ products = [], categories = [] }) => {
             <span className="text-amber-800/40 font-black text-[10px] uppercase tracking-[0.8em] mb-4">
               Discovery
             </span>
-            <h2 className="text-4xl md:text-7xl lg:text-9xl font-serif text-[#0c1322] uppercase tracking-tighter leading-none mb-10 opacity-90">
-              {id
-                ? categories.find((c) => c.id === parseInt(id))?.name
-                : "The Gallery"}
-            </h2>
+            {id ? (
+              <h1 className="text-4xl md:text-7xl lg:text-6xl font-serif text-[#0c1322] uppercase tracking-tighter leading-none mb-10 opacity-90">
+                {activeCategory?.name} – Brass & Silver Idols
+              </h1>
+            ) : (
+              <h2 className="text-4xl md:text-7xl lg:text-9xl font-serif text-[#0c1322] uppercase tracking-tighter leading-none mb-10 opacity-90">
+                The Gallery
+              </h2>
+            )}
             <div className="relative w-full max-w-xs border-b border-slate-300">
               <Lucide.Search
                 className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400"

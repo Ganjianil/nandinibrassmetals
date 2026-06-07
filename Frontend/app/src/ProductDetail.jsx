@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCart } from "./CartContext";
 import * as Lucide from "lucide-react";
 import api from "./api";
+import Seo, { JsonLd } from "./seo/Seo";
+import { breadcrumbSchema, productSchema } from "./seo/structuredData";
 
 const ProductDetail = ({ products, categories }) => {
   const { id } = useParams();
@@ -46,6 +48,9 @@ const ProductDetail = ({ products, categories }) => {
 
   if (!product) return null;
 
+  const categoryName =
+    categories?.find((c) => c.id === product.category_id)?.name || "Idols";
+
   const displayPrice = product.discount_price || product.price;
   const isInCart = cart.some((item) => item.id === product.id);
   const isOutOfStock = product.stock <= 0;
@@ -61,8 +66,30 @@ const ProductDetail = ({ products, categories }) => {
     return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
   };
 
+  const primaryImage = getImgSrc(productImages[0]);
+  const productDescription =
+    product.description ||
+    `Buy ${product.name} – handcrafted ${categoryName.toLowerCase()} from Nandhini Brass & Metals. Premium brass & silver idols with PAN India shipping.`;
+
   return (
     <div className="bg-[#FCFBFA] min-h-screen pb-24 md:pb-12 font-sans">
+      <Seo
+        title={`${product.name} – Buy Online`}
+        description={productDescription}
+        keywords={`${product.name}, brass idols, silver idols, ${categoryName}, buy idols online india`}
+        path={`/product/${product.id}`}
+        image={primaryImage}
+        type="product"
+      />
+      <JsonLd data={productSchema(product, primaryImage)} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "Home", path: "/" },
+          { name: categoryName, path: `/category/${product.category_id}` },
+          { name: product.name, path: `/product/${product.id}` },
+        ])}
+      />
+
       {/* 1. FULL SCREEN IMAGE (LIGHTBOX) */}
       {isLightboxOpen && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
