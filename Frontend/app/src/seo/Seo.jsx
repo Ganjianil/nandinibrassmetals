@@ -4,6 +4,7 @@ import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
   DEFAULT_TITLE,
+  GOOGLE_SITE_VERIFICATION,
   SITE_NAME,
 } from "./siteConfig";
 
@@ -47,12 +48,13 @@ const Seo = ({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
 
-      {import.meta.env.VITE_GOOGLE_SITE_VERIFICATION && (
-        <meta
-          name="google-site-verification"
-          content={import.meta.env.VITE_GOOGLE_SITE_VERIFICATION}
-        />
-      )}
+      <meta
+        name="google-site-verification"
+        content={
+          import.meta.env.VITE_GOOGLE_SITE_VERIFICATION ||
+          GOOGLE_SITE_VERIFICATION
+        }
+      />
 
       {children}
     </Helmet>

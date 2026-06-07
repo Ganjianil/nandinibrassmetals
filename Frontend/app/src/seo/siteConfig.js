@@ -3,6 +3,9 @@ export const SITE_URL =
 
 export const SITE_NAME = "Nandhini Brass & Metals";
 
+export const GOOGLE_SITE_VERIFICATION =
+  "LGt6C9-xVNMQhnZGq82c62L4piZha0vURpgSnEnq5Ag";
+
 export const DEFAULT_TITLE =
   "Nandhini Brass & Metals | Buy Brass & Silver Idols Online India";
 
@@ -14,6 +17,12 @@ export const DEFAULT_KEYWORDS = [
   "silver idols",
   "brass god statues",
   "silver god idols",
+  "brass items",
+  "silver items",
+  "brass",
+  "silver",
+  "best brass god statues",
+  "cheap god statues",
   "buy brass idols online",
   "buy silver idols online india",
   "brass pooja items",
