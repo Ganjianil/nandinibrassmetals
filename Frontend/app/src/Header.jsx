@@ -17,6 +17,7 @@ const Header = () => {
   const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
   const navLinks = [
     { to: "/", label: "Home" },
+    { to: "/custom-order", label: "Custom Order" },
     { to: "/orders", label: "Orders" },
   ];
 
@@ -226,7 +227,11 @@ const Header = () => {
                       : "text-slate-800 hover:text-amber-700"
                   }`}
                 >
-                  {link.to === "/orders" ? "My Orders" : link.label}
+                  {link.to === "/orders"
+                    ? "My Orders"
+                    : link.to === "/custom-order"
+                      ? "Custom Order"
+                      : link.label}
                 </Link>
               ))}
               {isAdmin && (

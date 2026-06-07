@@ -21,6 +21,7 @@ import "./index.css";
 import Profile from "./Profile";
 import Gallery from "./Gallery";
 import Footer from "./Footer";
+import ScrollToTop from "./ScrollToTop";
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -82,6 +83,7 @@ function App() {
   return (
     <CartProvider>
       <Router>
+        <ScrollToTop />
         <div className="selection:bg-amber-100 selection:text-amber-900 relative">
           <Header user={user} />
           <FloatingContact />
@@ -102,15 +104,7 @@ function App() {
               }
             />
 
-            <Route
-              path="/custom-order"
-              element={
-                <>
-                  <CustomOrderSuite />
-                  <Footer />
-                </>
-              }
-            />
+            <Route path="/custom-order" element={<CustomOrderSuite />} />
 
             <Route
               path="/category/:id"

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import * as Lucide from "lucide-react";
 import api from "./api";
 import Seo from "./seo/Seo";
@@ -17,12 +18,17 @@ const CustomOrderSuite = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       await api.post("/api/custom-consultations", formData);
       setSubmitted(true);
+      window.scrollTo(0, 0);
     } catch (err) {
       alert("Error submitting request. Please try again.");
     } finally {
@@ -32,261 +38,290 @@ const CustomOrderSuite = () => {
 
   if (submitted) {
     return (
-      <div className="bg-gradient-to-b from-[#F9F8F6] to-white py-16 px-4 sm:px-6">
-        <div className="max-w-2xl mx-auto text-center space-y-7 bg-white border border-amber-100 shadow-xl rounded-3xl p-8 sm:p-12 animate-in fade-in zoom-in duration-700">
-          <div className="w-20 h-20 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto border border-amber-200">
-            <Lucide.Check size={32} strokeWidth={1.5} />
+      <div className="min-h-[calc(100dvh-7rem)] bg-[#faf7f2] flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md text-center space-y-6 bg-white border border-[#e8dcc8] shadow-lg rounded-2xl p-8">
+          <div className="w-16 h-16 bg-amber-50 text-amber-700 rounded-full flex items-center justify-center mx-auto border border-amber-200">
+            <Lucide.Check size={28} strokeWidth={1.5} />
           </div>
-          <div className="space-y-4">
-            <h2 className="text-4xl md:text-6xl font-serif italic text-slate-900">
-              Pranams.
-            </h2>
-            <p className="text-slate-500 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
-              Your inquiry has been archived. Our master artisans will reach out
-              to you at{" "}
-              <span className="text-amber-700 font-bold">{formData.phone}</span>
-              .
-            </p>
+          <h2 className="text-3xl md:text-4xl font-serif italic text-slate-900">
+            Pranams.
+          </h2>
+          <p className="text-slate-500 text-sm leading-relaxed">
+            Your inquiry has been received. Our artisans will call you at{" "}
+            <span className="text-amber-700 font-semibold">{formData.phone}</span>
+            .
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <Link
+              to="/"
+              className="px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold uppercase text-xs tracking-wider"
+            >
+              Back to Shop
+            </Link>
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setFormData({
+                  metal: "Brass",
+                  phone: "",
+                  height: "",
+                  weight: "",
+                  state: "",
+                  expectedDate: "",
+                  details: "",
+                });
+              }}
+              className="px-6 py-3 border border-amber-300 text-amber-800 rounded-xl font-semibold uppercase text-xs tracking-wider"
+            >
+              New Inquiry
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setSubmitted(false);
-              setFormData({
-                metal: "Brass",
-                phone: "",
-                height: "",
-                weight: "",
-                state: "",
-                expectedDate: "",
-                details: "",
-              });
-            }}
-            className="px-8 py-3.5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.18em] hover:bg-amber-600 transition-all duration-300 shadow-lg"
-          >
-            New Inquiry
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <section className="bg-gradient-to-b from-[#F9F8F6] via-[#fdfcf9] to-white py-14 sm:py-20 px-4 sm:px-6 lg:px-12 relative overflow-hidden selection:bg-amber-200/40">
+    <div className="min-h-[calc(100dvh-7rem)] bg-[#faf7f2] pb-8 md:pb-16">
       <Seo
         title="Custom Brass & Silver Idol Orders"
-        description="Order bespoke brass idols, silver god statues, temple gajastambham cladding & custom metalwork. Master artisans at Nandhini Brass & Metals, Hyderabad."
-        keywords="custom brass idols, custom silver idols, temple gajastambham order, bespoke metal idols india"
+        description="Order bespoke brass idols, silver god statues, temple gajastambham cladding & custom metalwork."
+        keywords="custom brass idols, custom silver idols, temple gajastambham order"
         path="/custom-order"
       />
-      {/* Decorative Accents */}
-      <div className="absolute top-[-10%] right-[-5%] w-[440px] h-[440px] bg-amber-300/20 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[360px] h-[360px] bg-indigo-200/20 rounded-full blur-[100px]" />
 
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-10 lg:gap-12 items-start relative z-10">
-        {/* Left: Content Section */}
-        <div className="lg:col-span-5 space-y-10 lg:sticky lg:top-24">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-700">
-              <Lucide.Sparkles size={12} />
-              <span className="text-[10px] font-black uppercase tracking-[0.24em]">
-                Legacy Collection
-              </span>
-            </div>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif italic leading-[0.9] tracking-tight text-slate-900">
-              Custom
-              <span className="block not-italic text-amber-700">Order</span>
-            </h1>
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-md">
-              From divine iconography to architectural masterpieces, share your
-              requirements and our artisans will guide you step by step.
-            </p>
-          </div>
+      {/* Mobile page header */}
+      <div className="sticky top-[86px] md:top-[98px] z-30 bg-[#faf7f2]/95 backdrop-blur-md border-b border-[#e8dcc8] px-4 py-3 md:hidden">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <Link
+            to="/"
+            className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#7a6548]"
+          >
+            <Lucide.ArrowLeft size={16} />
+            Back
+          </Link>
+          <span className="text-sm font-serif font-semibold text-[#3d3028]">
+            Custom Order
+          </span>
+          <span className="w-12" />
+        </div>
+      </div>
 
-          <div className="space-y-6 pt-6 border-t border-amber-100">
-            <div className="flex gap-4 items-start">
-              <div className="p-3 rounded-xl bg-white shadow-sm border border-amber-100">
-                <Lucide.ShieldCheck className="text-amber-700" size={18} />
-              </div>
-              <div>
-                <h4 className="text-slate-900 font-bold text-xs uppercase tracking-widest">
-                  Shilpa Shastra
-                </h4>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Absolute adherence to Agamic traditions and divine
-                  proportions.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4 items-start">
-              <div className="p-3 rounded-xl bg-white shadow-sm border border-amber-100">
-                <Lucide.Crown className="text-amber-700" size={18} />
-              </div>
-              <div>
-                <h4 className="text-slate-900 font-bold text-xs uppercase tracking-widest">
-                  Museum Quality
-                </h4>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Certified purity in Brass, Silver, and Panchaloha alloys.
-                </p>
-              </div>
-            </div>
-          </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-10">
+        {/* Desktop intro — hidden clutter on mobile */}
+        <div className="hidden md:block mb-10 text-center max-w-2xl mx-auto">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#b89130] mb-3">
+            Bespoke Craftsmanship
+          </p>
+          <h1 className="text-4xl lg:text-5xl font-serif text-[#3d3028] leading-tight">
+            Custom Brass & Silver Orders
+          </h1>
+          <p className="mt-3 text-slate-600 text-base">
+            Share your requirements — our master artisans will guide you.
+          </p>
         </div>
 
-        {/* Right: Form Section */}
-        <div className="lg:col-span-7">
-          <div className="bg-white p-5 sm:p-8 md:p-10 border border-amber-100 shadow-xl rounded-3xl">
-            <div className="mb-7 flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900">
-                  Book Consultation
-                </h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  Fill the form and get a callback in 24 hours.
+        <div className="grid lg:grid-cols-5 gap-6 lg:gap-10 items-start">
+          {/* Form first on mobile */}
+          <div className="lg:col-span-3 order-1">
+            <div className="bg-white border border-[#e8dcc8] shadow-md rounded-2xl p-4 sm:p-6 md:p-8">
+              <div className="mb-5 md:mb-6">
+                <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#3d3028] md:hidden">
+                  Book Your Consultation
+                </h2>
+                <h2 className="hidden md:block text-2xl font-serif font-semibold text-[#3d3028]">
+                  Consultation Form
+                </h2>
+                <p className="text-xs md:text-sm text-slate-500 mt-1">
+                  Fill in the details below. We respond within 24 hours.
                 </p>
               </div>
-              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-amber-50 text-amber-700 items-center justify-center border border-amber-200">
-                <Lucide.ScrollText size={18} />
-              </div>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Metal Selection */}
-              <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                  Select Composition
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {["Brass", "Silver", "Panchaloha"].map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, metal: m })}
-                      className={`py-3 sm:py-3.5 border text-[11px] font-bold uppercase tracking-wide transition-all duration-300 rounded-xl
-                        ${
+
+              <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8b7355]">
+                    Metal Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {["Brass", "Silver", "Panchaloha"].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, metal: m })}
+                        className={`py-2.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide rounded-lg border transition-all ${
                           formData.metal === m
-                            ? "bg-slate-900 text-white border-slate-900 shadow-md"
-                            : "bg-white text-slate-500 border-slate-200 hover:border-amber-300 hover:text-slate-900"
+                            ? "bg-[#3d3028] text-white border-[#3d3028]"
+                            : "bg-[#faf7f2] text-[#6b5a45] border-[#e0d4c0] hover:border-[#b89130]"
                         }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Form Fields Grid */}
-              <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className="space-y-3 group">
-                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
-                    Contact Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+91 --- --- ----"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    value={formData.phone}
-                  />
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-3 group">
-                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
-                    Temple Location
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="City / State"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
-                    onChange={(e) =>
-                      setFormData({ ...formData, state: e.target.value })
-                    }
-                    value={formData.state}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8b7355]">
+                      Phone *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+91 98765 43210"
+                      className="mt-1.5 w-full bg-[#faf7f2] border border-[#e0d4c0] rounded-lg px-3 py-2.5 text-sm text-[#3d3028] focus:border-[#b89130] focus:ring-1 focus:ring-[#b89130]/30 outline-none"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8b7355]">
+                      Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="City, State"
+                      className="mt-1.5 w-full bg-[#faf7f2] border border-[#e0d4c0] rounded-lg px-3 py-2.5 text-sm text-[#3d3028] focus:border-[#b89130] focus:ring-1 focus:ring-[#b89130]/30 outline-none"
+                      value={formData.state}
+                      onChange={(e) =>
+                        setFormData({ ...formData, state: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8b7355]">
+                      Height (ft)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 3.5"
+                      className="mt-1.5 w-full bg-[#faf7f2] border border-[#e0d4c0] rounded-lg px-3 py-2.5 text-sm text-[#3d3028] focus:border-[#b89130] focus:ring-1 focus:ring-[#b89130]/30 outline-none"
+                      value={formData.height}
+                      onChange={(e) =>
+                        setFormData({ ...formData, height: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8b7355]">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 50"
+                      className="mt-1.5 w-full bg-[#faf7f2] border border-[#e0d4c0] rounded-lg px-3 py-2.5 text-sm text-[#3d3028] focus:border-[#b89130] focus:ring-1 focus:ring-[#b89130]/30 outline-none"
+                      value={formData.weight}
+                      onChange={(e) =>
+                        setFormData({ ...formData, weight: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-3 group">
-                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
-                    Desired Height (ft)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 3.5 ft"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
-                    onChange={(e) =>
-                      setFormData({ ...formData, height: e.target.value })
-                    }
-                    value={formData.height}
-                  />
-                </div>
-
-                <div className="space-y-3 group">
-                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
-                    Estimated Weight (kg)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 50 kg"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
-                    onChange={(e) =>
-                      setFormData({ ...formData, weight: e.target.value })
-                    }
-                    value={formData.weight}
-                  />
-                </div>
-
-                <div className="space-y-3 group md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
-                    Expected Delivery Date
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8b7355]">
+                    Expected Delivery *
                   </label>
                   <input
                     type="date"
                     required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 transition-all outline-none"
+                    className="mt-1.5 w-full bg-[#faf7f2] border border-[#e0d4c0] rounded-lg px-3 py-2.5 text-sm text-[#3d3028] focus:border-[#b89130] focus:ring-1 focus:ring-[#b89130]/30 outline-none"
+                    value={formData.expectedDate}
                     onChange={(e) =>
                       setFormData({ ...formData, expectedDate: e.target.value })
                     }
-                    value={formData.expectedDate}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-3 group">
-                <label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 group-focus-within:text-amber-700 transition-colors">
-                  Iconography Details
-                </label>
-                <textarea
-                  rows="4"
-                  placeholder="Describe the deity posture, Mudras, or specific Vahana requirements..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 resize-none"
-                  onChange={(e) =>
-                    setFormData({ ...formData, details: e.target.value })
-                  }
-                  value={formData.details}
-                ></textarea>
-              </div>
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8b7355]">
+                    Design Details
+                  </label>
+                  <textarea
+                    rows="3"
+                    placeholder="Deity, posture, size, temple requirements..."
+                    className="mt-1.5 w-full bg-[#faf7f2] border border-[#e0d4c0] rounded-lg p-3 text-sm text-[#3d3028] focus:border-[#b89130] focus:ring-1 focus:ring-[#b89130]/30 outline-none resize-none"
+                    value={formData.details}
+                    onChange={(e) =>
+                      setFormData({ ...formData, details: e.target.value })
+                    }
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full overflow-hidden bg-gradient-to-r from-slate-900 to-slate-800 py-4 rounded-xl transition-all duration-300 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 shadow-xl"
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 rounded-xl bg-[#3d3028] text-white font-semibold uppercase text-xs tracking-[0.15em] hover:bg-[#b89130] transition-colors disabled:opacity-50 shadow-md"
+                >
+                  {loading ? "Submitting..." : "Submit Custom Order"}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Info sidebar — below form on mobile */}
+          <div className="lg:col-span-2 order-2 space-y-4">
+            <div className="bg-white/80 border border-[#e8dcc8] rounded-2xl p-4 md:p-6">
+              <h3 className="text-sm font-serif font-semibold text-[#3d3028] mb-3">
+                Why Choose Us
+              </h3>
+              <ul className="space-y-3">
+                {[
+                  {
+                    icon: Lucide.ShieldCheck,
+                    title: "Shilpa Shastra",
+                    desc: "Traditional Agamic proportions",
+                  },
+                  {
+                    icon: Lucide.Crown,
+                    title: "Museum Quality",
+                    desc: "Certified brass, silver & panchaloha",
+                  },
+                  {
+                    icon: Lucide.Hammer,
+                    title: "Master Artisans",
+                    desc: "Handcrafted in Hyderabad since 1998",
+                  },
+                ].map((item) => (
+                  <li key={item.title} className="flex gap-3">
+                    <item.icon
+                      size={16}
+                      className="text-[#b89130] shrink-0 mt-0.5"
+                      strokeWidth={1.5}
+                    />
+                    <div>
+                      <p className="text-xs font-semibold text-[#3d3028]">
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-slate-500">{item.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="hidden md:block bg-gradient-to-br from-[#3d3028] to-[#5c4a3a] rounded-2xl p-6 text-white">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/80 mb-2">
+                Need help?
+              </p>
+              <p className="text-sm font-serif leading-relaxed text-stone-200">
+                Call us for temple gajastambham, custom idols & bulk orders.
+              </p>
+              <a
+                href="tel:+919848012345"
+                className="inline-flex items-center gap-2 mt-4 text-sm font-semibold text-amber-300 hover:text-amber-200"
               >
-                <div className="relative z-10 flex items-center justify-center gap-3 text-white font-black uppercase text-xs tracking-[0.18em]">
-                  {loading ? "Archiving Request..." : "Book Now"}
-                  <Lucide.ArrowRight
-                    size={16}
-                    className="group-hover:translate-x-1 transition-transform duration-300"
-                  />
-                </div>
-              </button>
-            </form>
+                <Lucide.Phone size={14} />
+                +91 98480 12345
+              </a>
+            </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

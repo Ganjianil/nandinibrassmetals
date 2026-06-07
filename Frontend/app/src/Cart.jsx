@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useCart } from "./CartContext";
 import { useNavigate, Link } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
 import axios from "axios";
 import api from "./api";
 import * as Lucide from "lucide-react";
 import Seo from "./seo/Seo";
+import OnlinePayment from "./components/OnlinePayment";
+import { PaymentLogoStrip } from "./components/PaymentLogos";
 
 const Cart = () => {
   const { cart, totalPrice, clearCart, updateQuantity, removeFromCart } =
@@ -18,7 +19,11 @@ const Cart = () => {
   const [pincode, setPincode] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [landmark, setLandmark] = useState("");
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [loadingGps, setLoadingGps] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [pincodeVerified, setPincodeVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Payment & Promo States
@@ -26,9 +31,7 @@ const Cart = () => {
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState(false);
-  const [utr, setUtr] = useState("");
 
-  const UPI_ID = "9705140250-4@ybl";
   const MERCHANT_NAME = "Nandhini Brass Metals";
   const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
@@ -68,11 +71,13 @@ const Cart = () => {
     else {
       setCity("");
       setState("");
+      setPincodeVerified(false);
     }
   }, [pincode]);
 
   const fetchLocation = async (pin) => {
     setLoadingLocation(true);
+    setLocationError("");
     try {
       const res = await axios.get(
         `https://api.postalpincode.in/pincode/${pin}`,
@@ -81,13 +86,90 @@ const Cart = () => {
         const data = res.data[0].PostOffice[0];
         setCity(data.District);
         setState(data.State);
+        setPincodeVerified(true);
+      } else {
+        setPincodeVerified(false);
+        setLocationError("Invalid pincode. Please check and try again.");
       }
     } catch (err) {
-      console.error("Location error");
+      setPincodeVerified(false);
+      setLocationError("Could not verify pincode. Try again.");
     } finally {
       setLoadingLocation(false);
     }
   };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Location is not supported on this device.");
+      return;
+    }
+
+    setLoadingGps(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await axios.get(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            {
+              headers: {
+                "Accept-Language": "en",
+                "User-Agent": "NandhiniBrassMetals/1.0",
+              },
+            },
+          );
+
+          const addr = res.data?.address || {};
+          const detectedPin =
+            addr.postcode?.replace(/\s/g, "").slice(0, 6) || "";
+          const detectedCity =
+            addr.city ||
+            addr.town ||
+            addr.village ||
+            addr.suburb ||
+            addr.county ||
+            "";
+          const detectedState = addr.state || "";
+          const line = [
+            addr.house_number,
+            addr.road,
+            addr.neighbourhood,
+            addr.suburb,
+          ]
+            .filter(Boolean)
+            .join(", ");
+
+          if (detectedPin) setPincode(detectedPin);
+          if (detectedCity) setCity(detectedCity);
+          if (detectedState) setState(detectedState);
+          if (line) setAddress(line);
+          if (detectedPin.length === 6) setPincodeVerified(true);
+        } catch {
+          setLocationError(
+            "Could not fetch address from GPS. Enter pincode manually.",
+          );
+        } finally {
+          setLoadingGps(false);
+        }
+      },
+      () => {
+        setLoadingGps(false);
+        setLocationError(
+          "Location access denied. Allow GPS or enter address manually.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
+
+  const inputClass =
+    "w-full bg-white rounded-xl px-4 py-3.5 text-sm text-slate-800 border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 outline-none transition-all placeholder:text-slate-400 shadow-sm";
+
+  const labelClass =
+    "block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 mb-1.5";
 
   const applyCoupon = async () => {
     if (!coupon.trim()) return alert("Please enter a code");
@@ -116,11 +198,71 @@ const Cart = () => {
   };
 
   const finalPrice = Math.round(totalPrice - discount);
-  const upiLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${finalPrice}&cu=INR`;
+
+  const getUser = () => {
+    const userString = localStorage.getItem("user");
+    return userString ? JSON.parse(userString) : null;
+  };
+
+  const placeOrder = async (transactionId, method) => {
+    const user = getUser();
+    if (!user) return;
+
+    const orderData = {
+      userId: user.id,
+      username: user.username || user.name || "Customer",
+      email: user.email,
+      phone,
+      address: `${address}${landmark ? `, ${landmark}` : ""}, ${city}, ${state} - ${pincode}`,
+      cartItems: cart.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity || 1,
+        price: item.price,
+        image: item.image,
+      })),
+      totalAmount: finalPrice,
+      paymentMethod: method,
+      transactionId,
+      couponCode: coupon,
+    };
+
+    await api.post("/api/orders", orderData);
+    alert("Order Placed Successfully! Check your email for confirmation.");
+    clearCart();
+    localStorage.removeItem("nandhini_cart_cache");
+    navigate("/");
+  };
+
+  const validateDelivery = () => {
+    const user = getUser();
+    if (!user) {
+      alert("Please login first!");
+      navigate("/login");
+      return false;
+    }
+    if (!phone || !address || !pincode) {
+      alert("Please fill in all delivery details first.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleRazorpaySuccess = async (paymentId) => {
+    const user = getUser();
+    if (!user) return;
+    setIsSubmitting(true);
+    try {
+      await placeOrder(paymentId, "Razorpay Online");
+    } catch (err) {
+      alert(err.response?.data?.error || "Order failed after payment. Contact support with payment ID.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleCheckout = async () => {
-    const userString = localStorage.getItem("user");
-    const user = userString ? JSON.parse(userString) : null;
+    const user = getUser();
 
     if (!user) {
       alert("Please Login First!");
@@ -132,39 +274,12 @@ const Cart = () => {
       return alert("Please fill in all shipping details!");
     }
 
-    if (paymentMethod !== "Cash on Delivery" && !utr) {
-      return alert(
-        "Please enter the Transaction ID / UTR after completing payment!",
-      );
-    }
+    if (paymentMethod !== "Cash on Delivery") return;
 
     setIsSubmitting(true);
 
-    const orderData = {
-      userId: user.id,
-      username: user.username || user.name || "Customer",
-      email: user.email,
-      phone,
-      address: `${address}, ${city}, ${state} - ${pincode}`,
-      cartItems: cart.map((item) => ({
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity || 1,
-        price: item.price,
-        image: item.image,
-      })),
-      totalAmount: finalPrice,
-      paymentMethod,
-      transactionId: utr,
-      couponCode: coupon,
-    };
-
     try {
-      await api.post("/api/orders", orderData);
-      alert("Order Placed Successfully! Check your email for confirmation.");
-      clearCart();
-      localStorage.removeItem("nandhini_cart_cache");
-      navigate("/");
+      await placeOrder("", "Cash on Delivery");
     } catch (err) {
       console.error("Order Error:", err);
       alert(err.response?.data?.error || "Order Failed. Please try again.");
@@ -384,275 +499,338 @@ const Cart = () => {
           </div>
 
           {/* Checkout Panel */}
-          <div className="lg:col-span-5">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 rounded-[2.5rem] p-7 md:p-9 text-white shadow-2xl sticky top-6 border border-slate-700/50">
-              <div className="mb-8 rounded-2xl border border-slate-700/60 bg-slate-800/40 px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400 font-bold">
-                    Estimated Delivery
-                  </p>
-                  <p className="text-sm font-black text-white mt-1">
-                    3-5 Business Days
-                  </p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
-                  <Lucide.Truck size={18} />
-                </div>
-              </div>
-              {/* Shipping Section */}
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
-                    <Lucide.Truck size={18} />
+          <div className="lg:col-span-5 space-y-5">
+            {/* Delivery — Flipkart / Amazon style light card */}
+            <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-7 shadow-sm border border-slate-200/80 sticky top-24 lg:top-6">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <Lucide.MapPin size={18} />
                   </div>
-                  <h2 className="text-xl font-black uppercase tracking-wide">
-                    Shipping
-                  </h2>
+                  <div>
+                    <h2 className="text-base md:text-lg font-bold text-slate-900">
+                      Delivery Address
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Where should we deliver your order?
+                    </p>
+                  </div>
                 </div>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+                  <Lucide.Truck size={12} />
+                  3-5 Days
+                </span>
+              </div>
 
-                <div className="space-y-3">
-                  <input
-                    type="tel"
-                    value={phone}
-                    placeholder="Mobile Number"
-                    maxLength="10"
-                    className="w-full bg-slate-800/80 hover:bg-slate-800 focus:bg-slate-800 rounded-2xl p-4 text-sm border border-slate-700/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all placeholder:text-slate-500"
-                    onChange={(e) =>
-                      setPhone(e.target.value.replace(/\D/g, ""))
-                    }
-                  />
+              <button
+                type="button"
+                onClick={useCurrentLocation}
+                disabled={loadingGps}
+                className="w-full mb-5 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/60 text-blue-700 font-semibold text-sm hover:bg-blue-50 hover:border-blue-400 transition-all disabled:opacity-60"
+              >
+                {loadingGps ? (
+                  <>
+                    <Lucide.Loader2 size={16} className="animate-spin" />
+                    Detecting your location...
+                  </>
+                ) : (
+                  <>
+                    <Lucide.LocateFixed size={16} />
+                    Use My Current Location
+                  </>
+                )}
+              </button>
 
+              {locationError && (
+                <p className="mb-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  {locationError}
+                </p>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Pincode *</label>
                   <div className="relative">
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={pincode}
                       maxLength="6"
-                      placeholder="Pincode"
-                      className="w-full bg-slate-800/80 hover:bg-slate-800 focus:bg-slate-800 rounded-2xl p-4 text-sm border border-slate-700/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all placeholder:text-slate-500"
+                      placeholder="Enter 6-digit pincode"
+                      className={inputClass}
                       onChange={(e) =>
                         setPincode(e.target.value.replace(/\D/g, ""))
                       }
                     />
                     {loadingLocation && (
                       <Lucide.Loader2
-                        className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-amber-500"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-amber-600"
+                        size={18}
+                      />
+                    )}
+                    {pincodeVerified && !loadingLocation && (
+                      <Lucide.CircleCheck
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-green-600"
                         size={18}
                       />
                     )}
                   </div>
+                </div>
 
-                  {city && state && (
-                    <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-green-400">
-                      <Lucide.MapPin size={16} />
-                      <span className="text-sm font-medium">
-                        {city}, {state}
-                      </span>
+                {(city || state) && (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                    <Lucide.MapPinned size={16} className="text-green-600 shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-green-700">
+                        Deliver to
+                      </p>
+                      <p className="text-sm font-semibold text-green-900">
+                        {city}
+                        {state ? `, ${state}` : ""}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
 
+                <div>
+                  <label className={labelClass}>Mobile Number *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={phone}
+                      placeholder="10-digit mobile number"
+                      maxLength="10"
+                      className={`${inputClass} pl-12`}
+                      onChange={(e) =>
+                        setPhone(e.target.value.replace(/\D/g, ""))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>
+                    House No., Building, Street *
+                  </label>
                   <textarea
                     value={address}
-                    placeholder="Full Address (House/Street/Landmark)"
-                    className="w-full bg-slate-800/80 hover:bg-slate-800 focus:bg-slate-800 rounded-2xl p-4 text-sm resize-none border border-slate-700/50 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all placeholder:text-slate-500"
+                    placeholder="Flat / House no., Building name, Street, Area"
+                    className={`${inputClass} resize-none`}
                     rows="2"
                     onChange={(e) => setAddress(e.target.value)}
                   />
                 </div>
-              </div>
 
-              {/* Payment Section */}
-              <div className="mb-8">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4">
-                  Payment Method
-                </h3>
-                <div className="space-y-3">
+                <div>
+                  <label className={labelClass}>
+                    Landmark{" "}
+                    <span className="font-normal normal-case text-slate-400">
+                      (optional)
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={landmark}
+                    placeholder="Near temple, school, shop..."
+                    className={inputClass}
+                    onChange={(e) => setLandmark(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment & Summary card */}
+            <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-7 shadow-sm border border-slate-200/80">
+              <h3 className="text-base font-bold text-slate-900 mb-4">
+                Payment Method
+              </h3>
+              <div className="space-y-3 mb-6">
+                <div
+                  onClick={() => setPaymentMethod("Cash on Delivery")}
+                  className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    paymentMethod === "Cash on Delivery"
+                      ? "bg-amber-50 border-amber-400"
+                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        paymentMethod === "Cash on Delivery"
+                          ? "bg-amber-100"
+                          : "bg-white border border-slate-200"
+                      }`}
+                    >
+                      <Lucide.Banknote
+                        size={18}
+                        className={
+                          paymentMethod === "Cash on Delivery"
+                            ? "text-amber-600"
+                            : "text-slate-400"
+                        }
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-sm text-slate-900 block">
+                        Cash on Delivery
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Pay when you receive
+                      </span>
+                    </div>
+                  </div>
                   <div
-                    onClick={() => setPaymentMethod("Cash on Delivery")}
-                    className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       paymentMethod === "Cash on Delivery"
-                        ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500"
-                        : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
+                        ? "border-amber-500"
+                        : "border-slate-300"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${paymentMethod === "Cash on Delivery" ? "bg-amber-500/20" : "bg-slate-700"}`}
-                      >
-                        <Lucide.Banknote
-                          size={18}
-                          className={
-                            paymentMethod === "Cash on Delivery"
-                              ? "text-amber-500"
-                              : "text-slate-400"
-                          }
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-sm block">
-                          Cash on Delivery
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          Pay when you receive
-                        </span>
-                      </div>
-                    </div>
                     {paymentMethod === "Cash on Delivery" && (
-                      <Lucide.CheckCircle2
-                        size={22}
-                        className="text-amber-500"
-                      />
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                     )}
                   </div>
+                </div>
 
-                  <div
-                    onClick={() => setPaymentMethod("UPI/Online")}
-                    className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                      paymentMethod === "UPI/Online"
-                        ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500"
-                        : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
+                <div
+                  onClick={() => setPaymentMethod("Online")}
+                  className={`rounded-xl border-2 cursor-pointer transition-all overflow-hidden ${
+                    paymentMethod === "Online"
+                      ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-400 shadow-sm"
+                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${paymentMethod === "UPI/Online" ? "bg-amber-500/20" : "bg-slate-700"}`}
+                        className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${
+                          paymentMethod === "Online"
+                            ? "bg-white shadow-sm border border-amber-100"
+                            : "bg-white border border-slate-200"
+                        }`}
                       >
-                        <Lucide.QrCode
+                        <Lucide.Smartphone
                           size={18}
                           className={
-                            paymentMethod === "UPI/Online"
-                              ? "text-amber-500"
+                            paymentMethod === "Online"
+                              ? "text-amber-600"
                               : "text-slate-400"
                           }
                         />
                       </div>
-                      <div>
-                        <span className="font-bold text-sm block">
-                          UPI / Cards
+                      <div className="min-w-0">
+                        <span className="font-bold text-sm text-slate-900 block">
+                          Pay Online
                         </span>
-                        <span className="text-[10px] text-slate-500">
-                          GPay, PhonePe, Paytm
+                        <span className="text-[11px] text-slate-500">
+                          UPI apps & cards via Razorpay
                         </span>
                       </div>
                     </div>
-                    {paymentMethod === "UPI/Online" && (
-                      <Lucide.CheckCircle2
-                        size={22}
-                        className="text-amber-500"
-                      />
-                    )}
+                    <div
+                      className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                        paymentMethod === "Online"
+                          ? "border-amber-500"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {paymentMethod === "Online" && (
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    className={`px-4 pb-4 pt-0 transition-all ${
+                      paymentMethod === "Online" ? "opacity-100" : "opacity-80"
+                    }`}
+                  >
+                    <PaymentLogoStrip />
                   </div>
                 </div>
               </div>
 
-              {/* UPI QR Section */}
-              {paymentMethod === "UPI/Online" && (
-                <div className="bg-white p-6 rounded-3xl mb-8 text-center animate-in slide-in-from-bottom-4 duration-300">
-                  <p className="text-slate-900 font-black text-xs uppercase tracking-wider mb-4 flex items-center justify-center gap-2">
-                    <Lucide.Smartphone size={14} />
-                    Scan to Pay
-                  </p>
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 inline-block rounded-2xl shadow-inner">
-                    <QRCodeSVG
-                      value={upiLink}
-                      size={160}
-                      level="H"
-                      includeMargin={true}
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="mt-5 space-y-4">
-                    <div className="inline-flex items-baseline gap-1 bg-green-50 text-green-700 px-4 py-2 rounded-full">
-                      <span className="text-xs font-bold">Pay</span>
-                      <span className="text-2xl font-black">
-                        ₹{finalPrice.toLocaleString()}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      value={utr}
-                      placeholder="Enter 12-digit UTR / Transaction ID"
-                      className="w-full bg-slate-100 text-slate-900 rounded-xl p-4 text-xs font-bold tracking-wide border-2 border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium"
-                      onChange={(e) => setUtr(e.target.value)}
-                    />
-                  </div>
+              {paymentMethod === "Online" && (
+                <div className="mb-6">
+                  <OnlinePayment
+                    amount={finalPrice}
+                    merchantName={MERCHANT_NAME}
+                    user={getUser()}
+                    phone={phone}
+                    onValidate={validateDelivery}
+                    onRazorpaySuccess={handleRazorpaySuccess}
+                    disabled={isSubmitting}
+                  />
                 </div>
               )}
 
               {/* Order Summary */}
-              <div className="space-y-3 pt-6 border-t border-slate-700/50">
-                <div className="flex justify-between text-sm text-slate-400">
-                  <span>Subtotal</span>
-                  <span>₹{totalPrice.toLocaleString()}</span>
+              <div className="space-y-3 pt-5 border-t border-slate-200">
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Subtotal ({totalItems} items)</span>
+                  <span className="font-semibold">
+                    ₹{totalPrice.toLocaleString()}
+                  </span>
                 </div>
                 {discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-400">
-                    <span>Discount</span>
-                    <span>-₹{discount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm text-slate-400">
-                  <span>Shipping</span>
-                  <span className="text-green-400">FREE</span>
-                </div>
-                <div className="flex justify-between items-end pt-4 border-t border-slate-700/50">
-                  <span className="font-black uppercase">Total</span>
-                  <div className="text-right">
-                    <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
-                      ₹{finalPrice.toLocaleString()}
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Coupon Discount</span>
+                    <span className="font-semibold">
+                      -₹{discount.toLocaleString()}
                     </span>
                   </div>
+                )}
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Delivery</span>
+                  <span className="font-semibold text-green-600">FREE</span>
+                </div>
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                  <span className="font-bold text-slate-900">Amount Payable</span>
+                  <span className="text-2xl md:text-3xl font-black text-amber-600">
+                    ₹{finalPrice.toLocaleString()}
+                  </span>
                 </div>
               </div>
 
-              {/* Checkout Button */}
-              <button
-                onClick={handleCheckout}
-                disabled={isSubmitting}
-                className={`group w-full mt-8 py-5 rounded-2xl font-black uppercase tracking-wider shadow-xl transition-all duration-300 ${
-                  isSubmitting
-                    ? "bg-slate-600 cursor-not-allowed"
-                    : "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 hover:shadow-2xl hover:shadow-amber-500/30 hover:-translate-y-0.5 text-white"
-                }`}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <Lucide.Loader2 className="animate-spin" size={20} />
-                    Processing...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-3">
-                    {paymentMethod === "UPI/Online" ? (
-                      <>
-                        <Lucide.CheckCircle2 size={20} />
-                        Verify & Place Order
-                      </>
-                    ) : (
-                      <>
-                        <Lucide.ShoppingBag size={20} />
-                        Confirm Order
-                      </>
-                    )}
-                    <Lucide.ArrowRight
-                      size={18}
-                      className="group-hover:translate-x-1 transition-transform"
-                    />
-                  </span>
-                )}
-              </button>
+              {paymentMethod === "Cash on Delivery" && (
+                <button
+                  onClick={handleCheckout}
+                  disabled={isSubmitting}
+                  className={`group w-full mt-6 py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
+                    isSubmitting
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                      : "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white hover:shadow-xl"
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Lucide.Loader2 className="animate-spin" size={18} />
+                      Processing...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <Lucide.ShoppingBag size={18} />
+                      Place Order (COD)
+                      <Lucide.ArrowRight
+                        size={16}
+                        className="group-hover:translate-x-0.5 transition-transform"
+                      />
+                    </span>
+                  )}
+                </button>
+              )}
 
-              {/* Trust Badges */}
-              <div className="flex items-center justify-center gap-6 mt-6 pt-6 border-t border-slate-700/50">
-                <div className="flex items-center gap-2 text-slate-500 text-[10px]">
-                  <Lucide.ShieldCheck size={14} />
+              <div className="flex items-center justify-center gap-5 mt-5 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                  <Lucide.ShieldCheck size={13} />
                   <span>Secure</span>
                 </div>
-                <div className="flex items-center gap-2 text-slate-500 text-[10px]">
-                  <Lucide.Truck size={14} />
+                <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                  <Lucide.Truck size={13} />
                   <span>Fast Delivery</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-500 text-[10px]">
-                  <Lucide.RotateCcw size={14} />
-                  <span>Easy Returns</span>
                 </div>
               </div>
             </div>

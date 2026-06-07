@@ -1,5 +1,6 @@
 const express = require('express');
 const nodemailer = require("nodemailer"); // --- ADDED THIS ---
+const crypto = require('crypto');
 
 const cors = require('cors');
 const bcrypt = require('bcrypt');
@@ -432,6 +433,85 @@ app.post("/api/products/:id/reviews", async (req, res) => {
         await db.query("INSERT INTO reviews (product_id, user_name, rating, comment) VALUES (?, ?, ?, ?)", [req.params.id, user_name, rating, comment]);
         res.json({ message: "Review added" });
     } catch (err) { res.status(500).json({ error: "Post review error" }); }
+});
+
+// --- PAYMENTS (Razorpay) ---
+const getRazorpayKeys = () => ({
+    keyId: (process.env.RAZORPAY_KEY_ID || "").trim(),
+    keySecret: (process.env.RAZORPAY_KEY_SECRET || "").trim(),
+});
+
+app.get('/api/payments/config', (req, res) => {
+    const { keyId, keySecret } = getRazorpayKeys();
+    res.json({
+        razorpayEnabled: Boolean(keyId && keySecret),
+        keyId,
+        merchantName: "Nandhini Brass Metals",
+    });
+});
+
+app.post('/api/payments/razorpay/create-order', async (req, res) => {
+    const { keyId, keySecret } = getRazorpayKeys();
+    if (!keyId || !keySecret) {
+        return res.status(503).json({ error: "Razorpay is not configured on server." });
+    }
+
+    const amount = Math.round(Number(req.body.amount));
+    if (!amount || amount < 1) {
+        return res.status(400).json({ error: "Invalid payment amount." });
+    }
+
+    try {
+        const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+        const response = await fetch('https://api.razorpay.com/v1/orders', {
+            method: 'POST',
+            headers: {
+                Authorization: `Basic ${auth}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                amount: amount * 100,
+                currency: 'INR',
+                receipt: `rcpt_${Date.now()}`,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            return res.status(500).json({ error: data.error?.description || "Failed to create payment order." });
+        }
+
+        res.json({
+            orderId: data.id,
+            amount: data.amount,
+            currency: data.currency,
+        });
+    } catch (err) {
+        res.status(500).json({ error: "Payment gateway error." });
+    }
+});
+
+app.post('/api/payments/razorpay/verify', (req, res) => {
+    const { keySecret } = getRazorpayKeys();
+    if (!keySecret) {
+        return res.status(503).json({ error: "Razorpay is not configured." });
+    }
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ error: "Missing payment verification data." });
+    }
+
+    const expected = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+    if (expected !== razorpay_signature) {
+        return res.status(400).json({ error: "Invalid payment signature." });
+    }
+
+    res.json({ verified: true, paymentId: razorpay_payment_id });
 });
 
 // --- ORDERS ---
