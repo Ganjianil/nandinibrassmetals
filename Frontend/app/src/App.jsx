@@ -84,7 +84,7 @@ function App() {
     <CartProvider>
       <Router>
         <ScrollToTop />
-        <div className="selection:bg-amber-100 selection:text-amber-900 relative">
+        <div className="selection:bg-amber-100 selection:text-amber-900 relative w-full max-w-full overflow-x-hidden">
           <Header user={user} />
           <FloatingContact />
 

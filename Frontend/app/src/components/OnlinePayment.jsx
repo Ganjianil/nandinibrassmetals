@@ -164,7 +164,7 @@ const OnlinePayment = ({
           type="button"
           onClick={startRazorpayPayment}
           disabled={disabled || paying || !razorpayConfig.enabled}
-          className="relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 py-4 px-4 text-white font-bold text-sm shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/30 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:hover:scale-100"
+          className="relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 py-4 px-4 text-white font-bold text-sm shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/30 disabled:opacity-50"
         >
           <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           <span className="relative flex items-center justify-center gap-2.5">

@@ -26,8 +26,7 @@ const Cart = () => {
   const [pincodeVerified, setPincodeVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Payment & Promo States
-  const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
+  // Promo States
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState(false);
@@ -166,7 +165,7 @@ const Cart = () => {
   };
 
   const inputClass =
-    "w-full bg-white rounded-xl px-4 py-3.5 text-sm text-slate-800 border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 outline-none transition-all placeholder:text-slate-400 shadow-sm";
+    "w-full bg-white rounded-xl px-4 py-3.5 text-base md:text-sm text-slate-800 border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 outline-none transition-all placeholder:text-slate-400 shadow-sm";
 
   const labelClass =
     "block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 mb-1.5";
@@ -256,33 +255,6 @@ const Cart = () => {
       await placeOrder(paymentId, "Razorpay Online");
     } catch (err) {
       alert(err.response?.data?.error || "Order failed after payment. Contact support with payment ID.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCheckout = async () => {
-    const user = getUser();
-
-    if (!user) {
-      alert("Please Login First!");
-      navigate("/login");
-      return;
-    }
-
-    if (!phone || !address || !pincode) {
-      return alert("Please fill in all shipping details!");
-    }
-
-    if (paymentMethod !== "Cash on Delivery") return;
-
-    setIsSubmitting(true);
-
-    try {
-      await placeOrder("", "Cash on Delivery");
-    } catch (err) {
-      console.error("Order Error:", err);
-      alert(err.response?.data?.error || "Order Failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -645,127 +617,35 @@ const Cart = () => {
 
             {/* Payment & Summary card */}
             <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-7 shadow-sm border border-slate-200/80">
-              <h3 className="text-base font-bold text-slate-900 mb-4">
-                Payment Method
-              </h3>
-              <div className="space-y-3 mb-6">
-                <div
-                  onClick={() => setPaymentMethod("Cash on Delivery")}
-                  className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    paymentMethod === "Cash on Delivery"
-                      ? "bg-amber-50 border-amber-400"
-                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        paymentMethod === "Cash on Delivery"
-                          ? "bg-amber-100"
-                          : "bg-white border border-slate-200"
-                      }`}
-                    >
-                      <Lucide.Banknote
-                        size={18}
-                        className={
-                          paymentMethod === "Cash on Delivery"
-                            ? "text-amber-600"
-                            : "text-slate-400"
-                        }
-                      />
-                    </div>
-                    <div>
-                      <span className="font-bold text-sm text-slate-900 block">
-                        Cash on Delivery
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        Pay when you receive
-                      </span>
-                    </div>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      paymentMethod === "Cash on Delivery"
-                        ? "border-amber-500"
-                        : "border-slate-300"
-                    }`}
-                  >
-                    {paymentMethod === "Cash on Delivery" && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    )}
-                  </div>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Secure Online Payment
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    GPay, PhonePe, Paytm, UPI & cards via Razorpay
+                  </p>
                 </div>
-
-                <div
-                  onClick={() => setPaymentMethod("Online")}
-                  className={`rounded-xl border-2 cursor-pointer transition-all overflow-hidden ${
-                    paymentMethod === "Online"
-                      ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-400 shadow-sm"
-                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${
-                          paymentMethod === "Online"
-                            ? "bg-white shadow-sm border border-amber-100"
-                            : "bg-white border border-slate-200"
-                        }`}
-                      >
-                        <Lucide.Smartphone
-                          size={18}
-                          className={
-                            paymentMethod === "Online"
-                              ? "text-amber-600"
-                              : "text-slate-400"
-                          }
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="font-bold text-sm text-slate-900 block">
-                          Pay Online
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          UPI apps & cards via Razorpay
-                        </span>
-                      </div>
-                    </div>
-                    <div
-                      className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === "Online"
-                          ? "border-amber-500"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      {paymentMethod === "Online" && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className={`px-4 pb-4 pt-0 transition-all ${
-                      paymentMethod === "Online" ? "opacity-100" : "opacity-80"
-                    }`}
-                  >
-                    <PaymentLogoStrip />
-                  </div>
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                  <Lucide.Smartphone size={18} className="text-amber-600" />
                 </div>
               </div>
 
-              {paymentMethod === "Online" && (
-                <div className="mb-6">
-                  <OnlinePayment
-                    amount={finalPrice}
-                    merchantName={MERCHANT_NAME}
-                    user={getUser()}
-                    phone={phone}
-                    onValidate={validateDelivery}
-                    onRazorpaySuccess={handleRazorpaySuccess}
-                    disabled={isSubmitting}
-                  />
-                </div>
-              )}
+              <div className="mb-4">
+                <PaymentLogoStrip />
+              </div>
+
+              <div className="mb-6">
+                <OnlinePayment
+                  amount={finalPrice}
+                  merchantName={MERCHANT_NAME}
+                  user={getUser()}
+                  phone={phone}
+                  onValidate={validateDelivery}
+                  onRazorpaySuccess={handleRazorpaySuccess}
+                  disabled={isSubmitting}
+                />
+              </div>
 
               {/* Order Summary */}
               <div className="space-y-3 pt-5 border-t border-slate-200">
@@ -794,34 +674,6 @@ const Cart = () => {
                   </span>
                 </div>
               </div>
-
-              {paymentMethod === "Cash on Delivery" && (
-                <button
-                  onClick={handleCheckout}
-                  disabled={isSubmitting}
-                  className={`group w-full mt-6 py-4 rounded-xl font-bold uppercase tracking-wide text-sm shadow-lg transition-all duration-300 ${
-                    isSubmitting
-                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                      : "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white hover:shadow-xl"
-                  }`}
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Lucide.Loader2 className="animate-spin" size={18} />
-                      Processing...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Lucide.ShoppingBag size={18} />
-                      Place Order (COD)
-                      <Lucide.ArrowRight
-                        size={16}
-                        className="group-hover:translate-x-0.5 transition-transform"
-                      />
-                    </span>
-                  )}
-                </button>
-              )}
 
               <div className="flex items-center justify-center gap-5 mt-5 pt-4 border-t border-slate-100">
                 <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
